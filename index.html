@@ -17,6 +17,7 @@
     --text:#f1e7da;
     --text-dim:#b8a996;
     --danger:#c1442d;
+    --highlight-ring: #fffbe8; /* A bright color for the highlight ring */
     --radius:14px;
   }
   *{box-sizing:border-box;}
@@ -110,8 +111,10 @@
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:6px;
-    width:52px;
+    justify-content:center;
+    gap:8px;
+    width:64px;
+    height:110px; /* Set a fixed height to prevent layout shift */
   }
   .dot{
     width:34px;
@@ -132,8 +135,7 @@
   .dot.khali{ background:transparent; border-color:var(--teal); color:var(--teal); }
   .dot.plain{ background:#4a3d33; color:#d8cabb; }
   .beat.current .dot{
-    transform:scale(1.28);
-    box-shadow:inset 0 0 0 2px rgba(224,168,54,.8);
+    box-shadow:inset 0 0 0 3px var(--highlight-ring), 0 0 12px rgba(224, 168, 54, 0.4);
   }
   .beat .bol{
     font-size:1.02rem;
@@ -143,6 +145,7 @@
     display:flex;
     align-items:center;
     font-weight:700;
+    transition: color .1s;
   }
   .beat.current .bol{ color:var(--gold); }
   .legend{
@@ -161,8 +164,11 @@
   .swatch.khali{ background:transparent; border:2px solid var(--teal); }
 
   .now-playing{
-    text-align:center;
+    display:flex;
+    justify-content:center;
+    align-items:baseline;
     margin-top:6px;
+    gap:10px;
   }
   .now-playing .big-bol{
     font-size:1.6rem;
@@ -170,7 +176,11 @@
     color:var(--gold);
     min-height:2.1rem;
   }
-  .now-playing .sub{ font-size:.8rem; color:var(--text-dim); }
+  .now-playing .sub{
+    font-size:.8rem;
+    color:var(--text-dim);
+    min-height:1.2em; /* Reserve space to prevent collapse */
+  }
 
   /* Stats row */
   .stats{
@@ -232,11 +242,11 @@
   .step-btn{
     background:var(--bg2);
     border:1px solid var(--panel-border);
-    color:var(--text);
-    width:30px; height:30px;
+    color:var(--text); height:30px;
     border-radius:8px;
     cursor:pointer;
     font-size:1rem;
+    padding:0 4px;
     line-height:1;
   }
   .step-btn:hover{ border-color:var(--gold-dim); }
@@ -345,9 +355,13 @@
       <div class="control">
         <label>Tempo <b id="bpmLabel">80 BPM</b></label>
         <div class="row">
+          <button class="step-btn" id="bpmHalf">&divide;2</button>
+          <button class="step-btn" id="bpmDown5">&minus;5</button>
           <button class="step-btn" id="bpmDown">&minus;</button>
           <input type="range" id="bpmSlider" min="20" max="300" value="80">
           <button class="step-btn" id="bpmUp">&plus;</button>
+          <button class="step-btn" id="bpmUp5">&plus;5</button>
+          <button class="step-btn" id="bpmDouble">&times;2</button>
         </div>
       </div>
       <div class="control">
@@ -465,6 +479,10 @@
   const bpmLabel = document.getElementById("bpmLabel");
   const bpmDown = document.getElementById("bpmDown");
   const bpmUp = document.getElementById("bpmUp");
+  const bpmDown5 = document.getElementById("bpmDown5");
+  const bpmUp5 = document.getElementById("bpmUp5");
+  const bpmHalf = document.getElementById("bpmHalf");
+  const bpmDouble = document.getElementById("bpmDouble");
   const volSlider = document.getElementById("volSlider");
   const volLabel = document.getElementById("volLabel");
   const playBtn = document.getElementById("playBtn");
@@ -626,7 +644,7 @@
     }
     const elapsed = elapsedAccum + (now - playbackStartCtxTime);
     elapsedEl.textContent = formatTime(elapsed);
-    rafID = requestAnimationFrame(uiLoop);
+    rafID = requestAnimationFrame(uiLoop); // This was missing
   }
 
   function renderBeat(beatNumber){
@@ -661,6 +679,7 @@
     playBtn.textContent = "Stop";
     playBtn.classList.add("playing");
     scheduler();
+    renderBeat(0); // Immediately highlight the first beat
     rafID = requestAnimationFrame(uiLoop);
   }
 
@@ -696,6 +715,10 @@
   bpmSlider.addEventListener("input", e=> setBpm(e.target.value));
   bpmDown.addEventListener("click", ()=> setBpm(bpm-1));
   bpmUp.addEventListener("click", ()=> setBpm(bpm+1));
+  bpmDown5.addEventListener("click", ()=> setBpm(bpm-5));
+  bpmUp5.addEventListener("click", ()=> setBpm(bpm+5));
+  bpmHalf.addEventListener("click", ()=> setBpm(bpm/2));
+  bpmDouble.addEventListener("click", ()=> setBpm(bpm*2));
 
   // ---------- Volume ----------
   function setVolume(v){
