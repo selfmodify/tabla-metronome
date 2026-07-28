@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabla Taal Metronome</title>
+<style>
+  :root{
+    --bg:#1b1512;
+    --bg2:#241c17;
+    --panel:#2a211b;
+    --panel-border:#3d2f26;
+    --gold:#e0a836;
+    --gold-dim:#8a6a2c;
+    --terracotta:#c1622d;
+    --teal:#3f9c8f;
+    --text:#f1e7da;
+    --text-dim:#b8a996;
+    --danger:#c1442d;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:radial-gradient(circle at 50% -10%, #33261d 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  }
+  body{
+    display:flex;
+    justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .app{
+    width:100%;
+    max-width:880px;
+  }
+  header{
+    text-align:center;
+    margin-bottom:22px;
+  }
+  header h1{
+    margin:0 0 4px;
+    font-size:1.7rem;
+    letter-spacing:.5px;
+    color:var(--gold);
+    font-weight:700;
+  }
+  header p{
+    margin:0;
+    color:var(--text-dim);
+    font-size:.92rem;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin-bottom:16px;
+    box-shadow:0 4px 18px rgba(0,0,0,.25);
+  }
+  .panel h2{
+    margin:0 0 12px;
+    font-size:.78rem;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color:var(--text-dim);
+    font-weight:600;
+  }
+
+  /* Taal selector */
+  .taal-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(130px,1fr));
+    gap:10px;
+  }
+  .taal-btn{
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    border-radius:10px;
+    padding:10px 10px;
+    cursor:pointer;
+    text-align:left;
+    transition:.15s border-color, .15s background;
+  }
+  .taal-btn:hover{ border-color:var(--gold-dim); }
+  .taal-btn.active{
+    background:linear-gradient(135deg,#4a3319,#2a211b);
+    border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold) inset;
+  }
+  .taal-btn .name{ font-weight:700; font-size:.95rem; }
+  .taal-btn .meta{ font-size:.72rem; color:var(--text-dim); margin-top:2px;}
+
+  /* Beat display */
+  .beat-strip{
+    display:grid;
+    grid-template-columns:repeat(8, 1fr);
+    gap:8px;
+    padding:14px 8px 6px;
+    max-width:100%;
+    min-height:190px;
+  }
+  .vibhag-group{
+    display:contents;
+  }
+  .beat{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:52px;
+  }
+  .dot{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.78rem;
+    font-weight:700;
+    color:#1b1512;
+    background:#5a4c3f;
+    border:2px solid transparent;
+    transition:transform .06s ease-out, box-shadow .1s;
+  }
+  .dot.sam{ background:var(--gold); }
+  .dot.tali{ background:var(--terracotta); color:#fff; }
+  .dot.khali{ background:transparent; border-color:var(--teal); color:var(--teal); }
+  .dot.plain{ background:#4a3d33; color:#d8cabb; }
+  .beat.current .dot{
+    transform:scale(1.28);
+    box-shadow:inset 0 0 0 2px rgba(224,168,54,.8);
+  }
+  .beat .bol{
+    font-size:1.02rem;
+    color:var(--text-dim);
+    white-space:nowrap;
+    height:1.4em;
+    display:flex;
+    align-items:center;
+    font-weight:700;
+  }
+  .beat.current .bol{ color:var(--gold); }
+  .legend{
+    display:flex;
+    gap:18px;
+    justify-content:center;
+    flex-wrap:wrap;
+    margin-top:10px;
+    font-size:.75rem;
+    color:var(--text-dim);
+  }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend .swatch{ width:14px; height:14px; border-radius:50%; display:inline-block; }
+  .swatch.sam{ background:var(--gold); }
+  .swatch.tali{ background:var(--terracotta); }
+  .swatch.khali{ background:transparent; border:2px solid var(--teal); }
+
+  .now-playing{
+    text-align:center;
+    margin-top:6px;
+  }
+  .now-playing .big-bol{
+    font-size:1.6rem;
+    font-weight:700;
+    color:var(--gold);
+    min-height:2.1rem;
+  }
+  .now-playing .sub{ font-size:.8rem; color:var(--text-dim); }
+
+  /* Stats row */
+  .stats{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .stat-box{
+    flex:1 1 160px;
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:12px 14px;
+    text-align:center;
+  }
+  .stat-box .label{ font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);}
+  .stat-box .value{ font-size:1.5rem; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
+
+  /* Controls */
+  .controls-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+  }
+  @media (max-width:560px){ .controls-grid{ grid-template-columns:1fr; } }
+  .control{ }
+  .control label{
+    display:flex;
+    justify-content:space-between;
+    font-size:.82rem;
+    color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .control label b{ color:var(--text); font-size:.95rem; }
+  .row{ display:flex; align-items:center; gap:10px; }
+  input[type=range]{
+    -webkit-appearance:none;
+    flex:1;
+    height:6px;
+    border-radius:4px;
+    background:#4a3d33;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:18px; height:18px;
+    border-radius:50%;
+    background:var(--gold);
+    cursor:pointer;
+    border:2px solid #1b1512;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px; height:18px;
+    border-radius:50%;
+    background:var(--gold);
+    cursor:pointer;
+    border:2px solid #1b1512;
+  }
+  .step-btn{
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    width:30px; height:30px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:1rem;
+    line-height:1;
+  }
+  .step-btn:hover{ border-color:var(--gold-dim); }
+  .num-input{
+    width:56px;
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    border-radius:8px;
+    text-align:center;
+    padding:5px 2px;
+    font-size:.95rem;
+  }
+
+  .transport{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    margin-top:18px;
+  }
+  .play-btn{
+    background:linear-gradient(135deg,var(--gold),#b5821f);
+    color:#241c17;
+    border:none;
+    font-weight:700;
+    font-size:1rem;
+    padding:13px 34px;
+    border-radius:999px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(224,168,54,.25);
+    transition:transform .08s;
+  }
+  .play-btn:active{ transform:scale(.97); }
+  .play-btn.playing{
+    background:linear-gradient(135deg,var(--danger),#8f3120);
+    color:#fff;
+    box-shadow:0 4px 14px rgba(193,68,45,.25);
+  }
+  .tap-btn{
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    padding:12px 18px;
+    border-radius:999px;
+    cursor:pointer;
+    font-size:.85rem;
+  }
+  .tap-btn:hover{ border-color:var(--gold-dim); }
+
+  footer{
+    text-align:center;
+    color:var(--text-dim);
+    font-size:.72rem;
+    margin-top:8px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Tabla Taal Metronome</h1>
+    <p>Practice with authentic taal cycles &mdash; sam, tali &amp; khali marked automatically.</p>
+  </header>
+
+  <section class="panel">
+    <h2>Select Taal</h2>
+    <div class="taal-grid" id="taalGrid"></div>
+  </section>
+
+  <section class="panel">
+    <h2 id="taalTitle">Beat Cycle</h2>
+    <div class="beat-strip" id="beatStrip"></div>
+    <div class="legend">
+      <span><i class="swatch sam"></i> Sam (beat 1)</span>
+      <span><i class="swatch tali"></i> Tali (clap)</span>
+      <span><i class="swatch khali"></i> Khali (wave)</span>
+    </div>
+    <div class="now-playing">
+      <div class="big-bol" id="bigBol">&nbsp;</div>
+      <div class="sub" id="cycleSub">Press Start to begin</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="stats">
+      <div class="stat-box">
+        <div class="label">Beat</div>
+        <div class="value" id="beatCount">&mdash; / &mdash;</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">Vibhag</div>
+        <div class="value" id="vibhagCount">&mdash;</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">Elapsed Time</div>
+        <div class="value" id="elapsedTime">00:00:00</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Controls</h2>
+    <div class="controls-grid">
+      <div class="control">
+        <label>Tempo <b id="bpmLabel">80 BPM</b></label>
+        <div class="row">
+          <button class="step-btn" id="bpmDown">&minus;</button>
+          <input type="range" id="bpmSlider" min="20" max="300" value="80">
+          <button class="step-btn" id="bpmUp">&plus;</button>
+        </div>
+      </div>
+      <div class="control">
+        <label>Volume <b id="volLabel">80%</b></label>
+        <div class="row">
+          <input type="range" id="volSlider" min="0" max="100" value="80">
+        </div>
+      </div>
+    </div>
+    <div class="transport">
+      <button class="play-btn" id="playBtn">Start</button>
+      <button class="tap-btn" id="tapBtn">Tap Tempo</button>
+    </div>
+  </section>
+
+  <footer>
+    Theka syllables shown are simplified, commonly-taught versions for practice &mdash; gharana traditions vary. Space bar toggles start/stop.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Taal data ----------
+  // vibhagAccents[0] is conventionally the Sam, but beat 0 is ALWAYS rendered as Sam
+  // regardless of its accent value (Rupak famously opens on a khali instead of a clap).
+  const TAALS = {
+    teentaal: {
+      name: "Teentaal", vibhags: [4,4,4,4],
+      vibhagAccents: ["sam","tali","khali","tali"],
+      bols: ["Dha","Dhin","Dhin","Dha","Dha","Dhin","Dhin","Dha","Dha","Tin","Tin","Ta","Ta","Dhin","Dhin","Dha"]
+    },
+    ektaal: {
+      name: "Ektaal", vibhags: [2,2,2,2,2,2],
+      vibhagAccents: ["sam","tali","khali","tali","tali","tali"],
+      bols: ["Dhin","Dhin","Dha","Ge","Ti","Ra","Ki","Ta","Dhin","Dhin","Dha","Ge"]
+    },
+    jhaptaal: {
+      name: "Jhaptaal", vibhags: [2,3,2,3],
+      vibhagAccents: ["sam","tali","khali","tali"],
+      bols: ["Dhin","Na","Dhin","Dhin","Na","Tin","Na","Dhin","Dhin","Na"]
+    },
+    rupak: {
+      name: "Rupak", vibhags: [3,2,2],
+      vibhagAccents: ["khali","tali","tali"],
+      bols: ["Tin","Tin","Na","Dhin","Na","Dhin","Na"]
+    },
+    dadra: {
+      name: "Dadra", vibhags: [3,3],
+      vibhagAccents: ["sam","khali"],
+      bols: ["Dha","Dhin","Na","Dha","Tin","Na"]
+    },
+    kehrawa: {
+      name: "Kehrawa", vibhags: [4,4],
+      vibhagAccents: ["sam","khali"],
+      bols: ["Dha","Ge","Na","Ti","Na","Ka","Dhin","Na"]
+    },
+    bhajani: {
+      name: "Bhajani", vibhags: [4,4],
+      vibhagAccents: ["sam","khali"],
+      bols: ["Dhin","Ka","Dhin","Na","Tin","Ka","Tin","Na"]
+    }
+  };
+
+  function totalBeats(taal){ return taal.vibhags.reduce((a,b)=>a+b,0); }
+
+  // Precompute per-beat info: {vibhagIndex, isVibhagStart, accent}
+  function beatInfoTable(taal){
+    const table = [];
+    let vIdx = 0, count = 0;
+    for (let i=0;i<taal.vibhags.length;i++){
+      for (let j=0;j<taal.vibhags[i];j++){
+        const isStart = j===0;
+        let accent = "plain";
+        if (i===0 && isStart) accent = "sam";
+        else if (isStart) accent = taal.vibhagAccents[i];
+        table.push({ vibhagIndex:i, isVibhagStart:isStart, accent });
+      }
+    }
+    return table;
+  }
+
+  // ---------- State ----------
+  let currentTaalKey = "teentaal";
+  let bpm = 80;
+  let volume = 0.8;
+  let isPlaying = false;
+  let beatTable = beatInfoTable(TAALS[currentTaalKey]);
+  let beatCircleEls = [];
+
+  let audioCtx = null;
+  let masterGain = null;
+  let currentBeatNumber = 0;
+  let nextNoteTime = 0;
+  let timerID = null;
+  let beatQueue = [];
+  let rafID = null;
+  let playbackStartCtxTime = 0;
+  let elapsedAccum = 0;
+
+  const LOOKAHEAD_MS = 25;
+  const SCHEDULE_AHEAD = 0.12;
+
+  // ---------- DOM refs ----------
+  const taalGrid = document.getElementById("taalGrid");
+  const taalTitle = document.getElementById("taalTitle");
+  const beatStrip = document.getElementById("beatStrip");
+  const bigBol = document.getElementById("bigBol");
+  const cycleSub = document.getElementById("cycleSub");
+  const beatCountEl = document.getElementById("beatCount");
+  const vibhagCountEl = document.getElementById("vibhagCount");
+  const elapsedEl = document.getElementById("elapsedTime");
+  const bpmSlider = document.getElementById("bpmSlider");
+  const bpmLabel = document.getElementById("bpmLabel");
+  const bpmDown = document.getElementById("bpmDown");
+  const bpmUp = document.getElementById("bpmUp");
+  const volSlider = document.getElementById("volSlider");
+  const volLabel = document.getElementById("volLabel");
+  const playBtn = document.getElementById("playBtn");
+  const tapBtn = document.getElementById("tapBtn");
+
+  // ---------- Build taal selector ----------
+  function buildTaalGrid(){
+    taalGrid.innerHTML = "";
+    Object.keys(TAALS).forEach(key=>{
+      const t = TAALS[key];
+      const btn = document.createElement("button");
+      btn.className = "taal-btn" + (key===currentTaalKey ? " active":"");
+      btn.dataset.key = key;
+      btn.innerHTML = `<div class="name">${t.name}</div><div class="meta">${totalBeats(t)} beats &middot; ${t.vibhags.length} vibhags</div>`;
+      btn.addEventListener("click", ()=> selectTaal(key));
+      taalGrid.appendChild(btn);
+    });
+  }
+
+  function selectTaal(key){
+    if (key === currentTaalKey) return;
+    currentTaalKey = key;
+    beatTable = beatInfoTable(TAALS[key]);
+    stopPlayback(true);
+    [...taalGrid.children].forEach(b=> b.classList.toggle("active", b.dataset.key===key));
+    buildBeatStrip();
+    updateStatsIdle();
+  }
+
+  // ---------- Build beat strip ----------
+  function buildBeatStrip(){
+    const taal = TAALS[currentTaalKey];
+    taalTitle.textContent = `Beat Cycle — ${taal.name}`;
+    beatStrip.innerHTML = "";
+    beatCircleEls = [];
+    let beatIdx = 0;
+    taal.vibhags.forEach((len, vI)=>{
+      const group = document.createElement("div");
+      group.className = "vibhag-group";
+      for (let j=0;j<len;j++){
+        const info = beatTable[beatIdx];
+        const wrap = document.createElement("div");
+        wrap.className = "beat";
+        const dot = document.createElement("div");
+        dot.className = "dot " + info.accent;
+        dot.textContent = info.accent === "sam" ? "X" : (info.isVibhagStart ? (info.accent==="khali" ? "O" : String(vI+1)) : "");
+        const bol = document.createElement("div");
+        bol.className = "bol";
+        bol.textContent = taal.bols[beatIdx] || "";
+        wrap.appendChild(dot);
+        wrap.appendChild(bol);
+        group.appendChild(wrap);
+        beatCircleEls.push(wrap);
+        beatIdx++;
+      }
+      beatStrip.appendChild(group);
+    });
+  }
+
+  function updateStatsIdle(){
+    const taal = TAALS[currentTaalKey];
+    beatCountEl.textContent = `— / ${totalBeats(taal)}`;
+    vibhagCountEl.textContent = `— / ${taal.vibhags.length}`;
+    bigBol.innerHTML = "&nbsp;";
+    cycleSub.textContent = "Press Start to begin";
+    elapsedEl.textContent = "00:00:00";
+    beatCircleEls.forEach(el=> el.classList.remove("current"));
+  }
+
+  // ---------- Audio synthesis ----------
+  function ensureAudio(){
+    if (!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = volume;
+      masterGain.connect(audioCtx.destination);
+    }
+  }
+
+  function tone(freq, time, dur, peak){
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(peak, time + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(gain).connect(masterGain);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+  }
+
+  function noiseHit(time, dur, peak, filterFreq){
+    const bufferSize = Math.floor(audioCtx.sampleRate * dur);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufferSize); }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = filterFreq;
+    filter.Q.value = 1.2;
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(peak, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    src.connect(filter).connect(gain).connect(masterGain);
+    src.start(time);
+  }
+
+  function playClick(accent, time){
+    switch(accent){
+      case "sam":
+        tone(1046, time, 0.16, 1.0);
+        tone(196, time, 0.22, 0.6);
+        break;
+      case "tali":
+        tone(784, time, 0.13, 0.75);
+        break;
+      case "khali":
+        noiseHit(time, 0.14, 0.45, 1400);
+        break;
+      default:
+        tone(440, time, 0.07, 0.28);
+    }
+  }
+
+  // ---------- Scheduler ----------
+  function secondsPerBeat(){ return 60.0 / bpm; }
+
+  function scheduleNote(beatNumber, time){
+    beatQueue.push({ beatNumber, time });
+    playClick(beatTable[beatNumber].accent, time);
+  }
+
+  function advanceBeat(){
+    nextNoteTime += secondsPerBeat();
+    currentBeatNumber = (currentBeatNumber + 1) % beatTable.length;
+  }
+
+  function scheduler(){
+    while (nextNoteTime < audioCtx.currentTime + SCHEDULE_AHEAD){
+      scheduleNote(currentBeatNumber, nextNoteTime);
+      advanceBeat();
+    }
+    timerID = setTimeout(scheduler, LOOKAHEAD_MS);
+  }
+
+  // ---------- UI sync loop ----------
+  function uiLoop(){
+    if (!isPlaying) return;
+    const now = audioCtx.currentTime;
+    let latest = null;
+    while (beatQueue.length && beatQueue[0].time <= now){
+      latest = beatQueue.shift();
+    }
+    if (latest){
+      renderBeat(latest.beatNumber);
+    }
+    const elapsed = elapsedAccum + (now - playbackStartCtxTime);
+    elapsedEl.textContent = formatTime(elapsed);
+    rafID = requestAnimationFrame(uiLoop);
+  }
+
+  function renderBeat(beatNumber){
+    const taal = TAALS[currentTaalKey];
+    beatCircleEls.forEach((el,i)=> el.classList.toggle("current", i===beatNumber));
+    const info = beatTable[beatNumber];
+    beatCountEl.textContent = `${beatNumber+1} / ${beatTable.length}`;
+    vibhagCountEl.textContent = `${info.vibhagIndex+1} / ${taal.vibhags.length}`;
+    bigBol.textContent = taal.bols[beatNumber] || "";
+    const accentLabel = info.accent==="sam" ? "Sam" : info.accent==="tali" ? "Tali (clap)" : info.accent==="khali" ? "Khali (wave)" : "";
+    cycleSub.textContent = accentLabel;
+  }
+
+  function formatTime(totalSeconds){
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const hh = String(Math.floor(s/3600)).padStart(2,"0");
+    const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+    const ss = String(s%60).padStart(2,"0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  // ---------- Transport ----------
+  function startPlayback(){
+    ensureAudio();
+    audioCtx.resume();
+    isPlaying = true;
+    currentBeatNumber = 0;
+    beatQueue = [];
+    nextNoteTime = audioCtx.currentTime + 0.06;
+    playbackStartCtxTime = audioCtx.currentTime;
+    elapsedAccum = 0;
+    playBtn.textContent = "Stop";
+    playBtn.classList.add("playing");
+    scheduler();
+    rafID = requestAnimationFrame(uiLoop);
+  }
+
+  function stopPlayback(silent){
+    isPlaying = false;
+    if (timerID) clearTimeout(timerID);
+    if (rafID) cancelAnimationFrame(rafID);
+    beatQueue = [];
+    playBtn.textContent = "Start";
+    playBtn.classList.remove("playing");
+    if (!silent) updateStatsIdle();
+    else updateStatsIdle();
+  }
+
+  playBtn.addEventListener("click", ()=>{
+    if (isPlaying) stopPlayback(false);
+    else startPlayback();
+  });
+
+  document.addEventListener("keydown", (e)=>{
+    if (e.code === "Space" && e.target === document.body){
+      e.preventDefault();
+      playBtn.click();
+    }
+  });
+
+  // ---------- Tempo controls ----------
+  function setBpm(v){
+    bpm = Math.min(300, Math.max(20, Math.round(v)));
+    bpmSlider.value = bpm;
+    bpmLabel.textContent = `${bpm} BPM`;
+  }
+  bpmSlider.addEventListener("input", e=> setBpm(e.target.value));
+  bpmDown.addEventListener("click", ()=> setBpm(bpm-1));
+  bpmUp.addEventListener("click", ()=> setBpm(bpm+1));
+
+  // ---------- Volume ----------
+  function setVolume(v){
+    volume = Math.min(100, Math.max(0, v)) / 100;
+    volSlider.value = v;
+    volLabel.textContent = `${Math.round(v)}%`;
+    if (masterGain) masterGain.gain.value = volume;
+  }
+  volSlider.addEventListener("input", e=> setVolume(e.target.value));
+
+  // ---------- Tap tempo ----------
+  let tapTimes = [];
+  tapBtn.addEventListener("click", ()=>{
+    const now = performance.now();
+    tapTimes = tapTimes.filter(t => now - t < 2500);
+    tapTimes.push(now);
+    if (tapTimes.length >= 2){
+      const intervals = [];
+      for (let i=1;i<tapTimes.length;i++) intervals.push(tapTimes[i]-tapTimes[i-1]);
+      const avgMs = intervals.reduce((a,b)=>a+b,0)/intervals.length;
+      setBpm(60000/avgMs);
+    }
+  });
+
+  // ---------- Init ----------
+  buildTaalGrid();
+  buildBeatStrip();
+  updateStatsIdle();
+  setBpm(bpm);
+  setVolume(volume*100);
+})();
+</script>
+</body>
+</html>

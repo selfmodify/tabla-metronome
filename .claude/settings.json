@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "PowerShell(Start-Process \"f:\\\\code\\\\tabla-metronome\\\\index.html\")"
+    ]
+  }
+}
