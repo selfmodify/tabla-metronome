@@ -250,6 +250,21 @@
     line-height:1;
   }
   .step-btn:hover{ border-color:var(--gold-dim); }
+  .preset-row{ margin-top:10px; }
+  .preset-btn{
+    flex:1;
+    background:var(--bg2);
+    border:1px solid var(--panel-border);
+    color:var(--text-dim);
+    height:30px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:.8rem;
+    transition:.15s border-color, .15s background, .15s color;
+  }
+  .preset-btn:hover{ border-color:var(--gold-dim); }
+  .preset-btn.active{ border-color:var(--gold); color:var(--gold); font-weight:600; }
+
   .num-input{
     width:56px;
     background:var(--bg2);
@@ -286,16 +301,6 @@
     color:#fff;
     box-shadow:0 4px 14px rgba(193,68,45,.25);
   }
-  .tap-btn{
-    background:var(--bg2);
-    border:1px solid var(--panel-border);
-    color:var(--text);
-    padding:12px 18px;
-    border-radius:999px;
-    cursor:pointer;
-    font-size:.85rem;
-  }
-  .tap-btn:hover{ border-color:var(--gold-dim); }
 
   footer{
     text-align:center;
@@ -363,6 +368,11 @@
           <button class="step-btn" id="bpmUp5">&plus;5</button>
           <button class="step-btn" id="bpmDouble">&times;2</button>
         </div>
+        <div class="row preset-row">
+          <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
+          <button class="preset-btn" data-bpm="120">Madhya (120)</button>
+          <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
+        </div>
       </div>
       <div class="control">
         <label>Volume <b id="volLabel">80%</b></label>
@@ -373,7 +383,6 @@
     </div>
     <div class="transport">
       <button class="play-btn" id="playBtn">Start</button>
-      <button class="tap-btn" id="tapBtn">Tap Tempo</button>
     </div>
   </section>
 
@@ -486,7 +495,6 @@
   const volSlider = document.getElementById("volSlider");
   const volLabel = document.getElementById("volLabel");
   const playBtn = document.getElementById("playBtn");
-  const tapBtn = document.getElementById("tapBtn");
 
   // ---------- Build taal selector ----------
   function buildTaalGrid(){
@@ -711,6 +719,14 @@
     bpm = Math.min(300, Math.max(20, Math.round(v)));
     bpmSlider.value = bpm;
     bpmLabel.textContent = `${bpm} BPM`;
+    updatePresetButtons();
+  }
+
+  function updatePresetButtons(){
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      // Use a small tolerance for float values from bpm/2
+      btn.classList.toggle('active', Math.abs(bpm - btn.dataset.bpm) < 0.1);
+    });
   }
   bpmSlider.addEventListener("input", e=> setBpm(e.target.value));
   bpmDown.addEventListener("click", ()=> setBpm(bpm-1));
@@ -719,6 +735,12 @@
   bpmUp5.addEventListener("click", ()=> setBpm(bpm+5));
   bpmHalf.addEventListener("click", ()=> setBpm(bpm/2));
   bpmDouble.addEventListener("click", ()=> setBpm(bpm*2));
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const presetBpm = parseInt(btn.dataset.bpm, 10);
+      setBpm(presetBpm);
+    });
+  });
 
   // ---------- Volume ----------
   function setVolume(v){
@@ -728,20 +750,6 @@
     if (masterGain) masterGain.gain.value = volume;
   }
   volSlider.addEventListener("input", e=> setVolume(e.target.value));
-
-  // ---------- Tap tempo ----------
-  let tapTimes = [];
-  tapBtn.addEventListener("click", ()=>{
-    const now = performance.now();
-    tapTimes = tapTimes.filter(t => now - t < 2500);
-    tapTimes.push(now);
-    if (tapTimes.length >= 2){
-      const intervals = [];
-      for (let i=1;i<tapTimes.length;i++) intervals.push(tapTimes[i]-tapTimes[i-1]);
-      const avgMs = intervals.reduce((a,b)=>a+b,0)/intervals.length;
-      setBpm(60000/avgMs);
-    }
-  });
 
   // ---------- Init ----------
   buildTaalGrid();
