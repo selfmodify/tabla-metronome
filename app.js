@@ -1,11 +1,9 @@
 (function(){
   "use strict";
 
-  const USE_AUDIO_SAMPLES = false; // Set this to true to enable audio samples
+  const USE_AUDIO_SAMPLES = false;
 
   // ---------- Taal data ----------
-  // vibhagAccents[0] is conventionally the Sam, but beat 0 is ALWAYS rendered as Sam
-  // regardless of its accent value (Rupak famously opens on a khali instead of a clap).
   const TAALS = {
     teentaal: {
       name: "Teentaal", vibhags: [4,4,4,4],
@@ -46,10 +44,8 @@
 
   function totalBeats(taal){ return taal.vibhags.reduce((a,b)=>a+b,0); }
 
-  // Precompute per-beat info: {vibhagIndex, isVibhagStart, accent}
   function beatInfoTable(taal){
     const table = [];
-    let vIdx = 0, count = 0;
     for (let i=0;i<taal.vibhags.length;i++){
       for (let j=0;j<taal.vibhags[i];j++){
         const isStart = j===0;
@@ -62,10 +58,45 @@
     return table;
   }
 
+  // Sound profiles
+  const SOUND_PROFILES = {
+    default: {
+      samFreq1: 1046, samDur1: 0.16, samPeak1: 1.0,
+      samFreq2: 196, samDur2: 0.22, samPeak2: 0.6,
+      taliFreq: 784, taliDur: 0.13, taliPeak: 0.75,
+      khaliFilterFreq: 1400, khaliDur: 0.14, khaliPeak: 0.45,
+      plainFreq: 440, plainDur: 0.07, plainPeak: 0.28
+    },
+    bright: {
+      samFreq1: 1200, samDur1: 0.14, samPeak1: 1.1,
+      samFreq2: 220, samDur2: 0.20, samPeak2: 0.7,
+      taliFreq: 900, taliDur: 0.11, taliPeak: 0.85,
+      khaliFilterFreq: 1600, khaliDur: 0.12, khaliPeak: 0.5,
+      plainFreq: 550, plainDur: 0.06, plainPeak: 0.32
+    },
+    mellow: {
+      samFreq1: 880, samDur1: 0.20, samPeak1: 0.9,
+      samFreq2: 146, samDur2: 0.25, samPeak2: 0.5,
+      taliFreq: 659, taliDur: 0.15, taliPeak: 0.65,
+      khaliFilterFreq: 1200, khaliDur: 0.16, khaliPeak: 0.4,
+      plainFreq: 330, plainDur: 0.09, plainPeak: 0.22
+    },
+    melodic: {
+      samFreq1: 1318, samDur1: 0.18, samPeak1: 0.95,
+      samFreq2: 659, samDur2: 0.18, samPeak2: 0.6,
+      taliFreq: 1047, taliDur: 0.14, taliPeak: 0.7,
+      khaliFilterFreq: 1800, khaliDur: 0.13, khaliPeak: 0.35,
+      plainFreq: 587, plainDur: 0.08, plainPeak: 0.25
+    }
+  };
+
   // ---------- State ----------
   let currentTaalKey = localStorage.getItem('tablaTaal') || "teentaal";
   let bpm = parseInt(localStorage.getItem('tablaBpm'), 10) || 80;
   let volume = parseFloat(localStorage.getItem('tablaVol')) || 0.8;
+  let soundProfile = localStorage.getItem('tablaSoundProfile') || 'default';
+  let currentTheme = localStorage.getItem('tablaTheme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
   let audioBuffers = {};
   let isLoading = USE_AUDIO_SAMPLES;
   let isPlaying = false;
@@ -82,8 +113,24 @@
   let playbackStartCtxTime = 0;
   let elapsedAccum = 0;
 
+  // Practice features state
+  let tapAlongMode = false;
+  let loopMode = false;
+  let loopStart = 0;
+  let loopEnd = 0;
+  let tempoRampMode = false;
+  let tempoRampAmount = 2;
+  let tempoRampInterval = 4;
+  let tempoRampCounter = 0;
+  let sessionTimerMode = false;
+  let sessionTimerDuration = 10;
+  let sessionTimerStart = 0;
+  let lastTapTime = 0;
+  let tapTimings = [];
+
   const LOOKAHEAD_MS = 25;
   const SCHEDULE_AHEAD = 0.12;
+  const TAP_SYNC_TOLERANCE_MS = 100;
 
   // ---------- DOM refs ----------
   const taalGrid = document.getElementById("taalGrid");
@@ -107,6 +154,33 @@
   const volDown = document.getElementById("volDown");
   const volUp = document.getElementById("volUp");
   const playBtn = document.getElementById("playBtn");
+  const themeToggle = document.getElementById("themeToggle");
+  const tapAlongCb = document.getElementById("tapAlongMode");
+  const loopModeCb = document.getElementById("loopMode");
+  const tempoRampCb = document.getElementById("tempoRamp");
+  const sessionTimerCb = document.getElementById("sessionTimer");
+  const loopControls = document.getElementById("loopControls");
+  const loopStartSel = document.getElementById("loopStart");
+  const loopEndSel = document.getElementById("loopEnd");
+  const tempoRampControls = document.getElementById("tempoRampControls");
+  const rampAmount = document.getElementById("rampAmount");
+  const rampInterval = document.getElementById("rampInterval");
+  const sessionTimerControls = document.getElementById("sessionTimerControls");
+  const timerDuration = document.getElementById("timerDuration");
+  const timerDisplay = document.getElementById("timerDisplay");
+  const tapFeedback = document.getElementById("tapFeedback");
+
+  // ---------- Theme ----------
+  function applyTheme(theme){
+    currentTheme = theme;
+    localStorage.setItem('tablaTheme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+
+  themeToggle.addEventListener('click', ()=> {
+    applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+  });
 
   // ---------- Build taal selector ----------
   function buildTaalGrid(){
@@ -130,6 +204,7 @@
     stopPlayback(true);
     [...taalGrid.children].forEach(b=> b.classList.toggle("active", b.dataset.key===key));
     buildBeatStrip();
+    updateLoopSelects();
     updateStatsIdle();
   }
 
@@ -173,6 +248,26 @@
     beatCircleEls.forEach(el=> el.classList.remove("current"));
   }
 
+  function updateLoopSelects(){
+    const taal = TAALS[currentTaalKey];
+    const totalBeats = beatTable.length;
+    loopStartSel.innerHTML = "";
+    loopEndSel.innerHTML = "";
+    for (let i=0;i<totalBeats;i++){
+      const optStart = document.createElement("option");
+      optStart.value = i;
+      optStart.textContent = `Beat ${i+1}`;
+      loopStartSel.appendChild(optStart);
+
+      const optEnd = document.createElement("option");
+      optEnd.value = i;
+      optEnd.textContent = `Beat ${i+1}`;
+      loopEndSel.appendChild(optEnd);
+    }
+    loopEnd = totalBeats - 1;
+    loopEndSel.value = loopEnd;
+  }
+
   // ---------- Audio ----------
   function ensureAudio(){
     if (!audioCtx){
@@ -184,7 +279,6 @@
     }
   }
 
-  // --- Synthesized sounds (default) ---
   function tone(freq, time, dur, peak){
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -217,13 +311,26 @@
   }
 
   function playClick(accent, time){
-    if (accent === "sam") { tone(1046, time, 0.16, 1.0); tone(196, time, 0.22, 0.6); }
-    else if (accent === "tali") { tone(784, time, 0.13, 0.75); }
-    else if (accent === "khali") { noiseHit(time, 0.14, 0.45, 1400); }
-    else { tone(440, time, 0.07, 0.28); }
+    const profile = SOUND_PROFILES[soundProfile] || SOUND_PROFILES.default;
+    let volume_mult = 1.0;
+    if (accent === "sam") volume_mult = 1.2;
+    else if (accent === "tali") volume_mult = 1.1;
+
+    if (accent === "sam"){
+      tone(profile.samFreq1, time, profile.samDur1, profile.samPeak1 * volume_mult);
+      tone(profile.samFreq2, time, profile.samDur2, profile.samPeak2 * volume_mult);
+    }
+    else if (accent === "tali"){
+      tone(profile.taliFreq, time, profile.taliDur, profile.taliPeak * volume_mult);
+    }
+    else if (accent === "khali"){
+      noiseHit(time, profile.khaliDur, profile.khaliPeak, profile.khaliFilterFreq);
+    }
+    else {
+      tone(profile.plainFreq, time, profile.plainDur, profile.plainPeak);
+    }
   }
 
-  // --- Audio sample logic (optional) ---
   async function loadAudioSamples(){
     const uniqueBols = [...new Set(Object.values(TAALS).flatMap(t => t.bols))];
     playBtn.disabled = true;
@@ -244,17 +351,14 @@
   function playSample(bol, time, accent){
     const buffer = audioBuffers[bol];
     if (!buffer) {
-      playClick(accent, time); // Fallback to synthesized sound
+      playClick(accent, time);
       return;
     }
-
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
-
-    // Optional: Make sam/tali slightly louder
     if (accent === 'sam' || accent === 'tali'){
       const gain = audioCtx.createGain();
-      gain.gain.value = 1.2; // 20% louder
+      gain.gain.value = 1.2;
       source.connect(gain).connect(masterGain);
     } else {
       source.connect(masterGain);
@@ -266,6 +370,7 @@
   function secondsPerBeat(){ return 60.0 / bpm; }
 
   function scheduleNote(beatNumber, time){
+    if (loopMode && (beatNumber < loopStart || beatNumber > loopEnd)) return;
     beatQueue.push({ beatNumber, time });
     const accent = beatTable[beatNumber].accent;
     if (USE_AUDIO_SAMPLES){
@@ -278,7 +383,12 @@
 
   function advanceBeat(){
     nextNoteTime += secondsPerBeat();
-    currentBeatNumber = (currentBeatNumber + 1) % beatTable.length;
+    if (loopMode){
+      currentBeatNumber++;
+      if (currentBeatNumber > loopEnd) currentBeatNumber = loopStart;
+    } else {
+      currentBeatNumber = (currentBeatNumber + 1) % beatTable.length;
+    }
   }
 
   function scheduler(){
@@ -302,7 +412,28 @@
     }
     const elapsed = elapsedAccum + (now - playbackStartCtxTime);
     elapsedEl.textContent = formatTime(elapsed);
-    rafID = requestAnimationFrame(uiLoop); // This was missing
+
+    if (sessionTimerMode){
+      const sessionElapsed = elapsed - sessionTimerStart;
+      const sessionRemaining = Math.max(0, sessionTimerDuration * 60 - sessionElapsed);
+      timerDisplay.textContent = formatTime(sessionRemaining);
+      if (sessionRemaining <= 0){
+        stopPlayback(false);
+        alert("Practice session complete!");
+      }
+    }
+
+    if (tempoRampMode){
+      const cycleElapsed = Math.floor((now - playbackStartCtxTime) / (secondsPerBeat() * beatTable.length));
+      if (cycleElapsed > tempoRampCounter){
+        tempoRampCounter = cycleElapsed;
+        if (tempoRampCounter % tempoRampInterval === 0 && tempoRampCounter > 0){
+          setBpm(bpm + tempoRampAmount);
+        }
+      }
+    }
+
+    rafID = requestAnimationFrame(uiLoop);
   }
 
   function renderBeat(beatNumber){
@@ -330,15 +461,17 @@
     ensureAudio();
     audioCtx.resume();
     isPlaying = true;
-    currentBeatNumber = 0;
+    currentBeatNumber = loopMode ? loopStart : 0;
     beatQueue = [];
     nextNoteTime = audioCtx.currentTime + 0.06;
     playbackStartCtxTime = audioCtx.currentTime;
     elapsedAccum = 0;
+    tempoRampCounter = 0;
+    if (sessionTimerMode) sessionTimerStart = 0;
     playBtn.textContent = "Stop";
     playBtn.classList.add("playing");
     scheduler();
-    renderBeat(0); // Immediately highlight the first beat
+    renderBeat(currentBeatNumber);
     rafID = requestAnimationFrame(uiLoop);
   }
 
@@ -365,6 +498,98 @@
     }
   });
 
+  // ---------- Tap-along mode ----------
+  function detectTapSync(){
+    const now = performance.now();
+    tapTimings.push(now);
+    tapTimings = tapTimings.filter(t => now - t < 3000);
+
+    if (tapTimings.length >= 2){
+      const intervals = [];
+      for (let i=1;i<tapTimings.length;i++){
+        intervals.push(tapTimings[i] - tapTimings[i-1]);
+      }
+      const avgTapInterval = intervals.reduce((a,b)=>a+b,0) / intervals.length;
+      const expectedInterval = secondsPerBeat() * 1000;
+      const diffMs = Math.abs(avgTapInterval - expectedInterval);
+
+      if (diffMs < TAP_SYNC_TOLERANCE_MS){
+        tapFeedback.textContent = "✓ In sync!";
+        tapFeedback.className = "tap-feedback good";
+      } else if (diffMs < TAP_SYNC_TOLERANCE_MS * 2){
+        tapFeedback.textContent = diffMs < expectedInterval ? "→ Speed up" : "← Slow down";
+        tapFeedback.className = "tap-feedback";
+      } else {
+        tapFeedback.textContent = diffMs < expectedInterval ? "→ Speed up more" : "← Slow down more";
+        tapFeedback.className = "tap-feedback bad";
+      }
+      tapFeedback.style.display = "block";
+    }
+  }
+
+  document.addEventListener("keydown", (e)=>{
+    if (tapAlongMode && isPlaying && (e.code === "KeyT" || e.code === "Enter")){
+      e.preventDefault();
+      detectTapSync();
+    }
+  });
+
+  // ---------- Practice features setup ----------
+  tapAlongCb.addEventListener("change", (e)=> {
+    tapAlongMode = e.target.checked;
+    tapFeedback.style.display = tapAlongMode && isPlaying ? "block" : "none";
+    tapTimings = [];
+  });
+
+  loopModeCb.addEventListener("change", (e)=> {
+    loopMode = e.target.checked;
+    loopControls.style.display = loopMode ? "flex" : "none";
+  });
+
+  loopStartSel.addEventListener("change", (e)=> {
+    loopStart = parseInt(e.target.value, 10);
+    loopEnd = Math.max(loopStart, loopEnd);
+    loopEndSel.value = loopEnd;
+  });
+
+  loopEndSel.addEventListener("change", (e)=> {
+    loopEnd = parseInt(e.target.value, 10);
+    loopStart = Math.min(loopStart, loopEnd);
+    loopStartSel.value = loopStart;
+  });
+
+  tempoRampCb.addEventListener("change", (e)=> {
+    tempoRampMode = e.target.checked;
+    tempoRampControls.style.display = tempoRampMode ? "flex" : "none";
+  });
+
+  rampAmount.addEventListener("change", (e)=> {
+    tempoRampAmount = Math.max(1, parseInt(e.target.value, 10));
+  });
+
+  rampInterval.addEventListener("change", (e)=> {
+    tempoRampInterval = Math.max(1, parseInt(e.target.value, 10));
+  });
+
+  sessionTimerCb.addEventListener("change", (e)=> {
+    sessionTimerMode = e.target.checked;
+    sessionTimerControls.style.display = sessionTimerMode ? "flex" : "none";
+  });
+
+  timerDuration.addEventListener("change", (e)=> {
+    sessionTimerDuration = Math.max(1, parseInt(e.target.value, 10));
+  });
+
+  // Sound profile buttons
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    btn.addEventListener('click', (e)=> {
+      soundProfile = e.target.dataset.profile;
+      localStorage.setItem('tablaSoundProfile', soundProfile);
+      document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+    });
+  });
+
   // ---------- Tempo controls ----------
   function setBpm(v){
     bpm = Math.min(300, Math.max(20, Math.round(v)));
@@ -376,7 +601,6 @@
 
   function updatePresetButtons(){
     document.querySelectorAll('.preset-btn').forEach(btn => {
-      // Use a small tolerance for float values from bpm/2
       btn.classList.toggle('active', Math.abs(bpm - btn.dataset.bpm) < 0.1);
     });
   }
@@ -407,10 +631,17 @@
   volUp.addEventListener("click", ()=> setVolume(parseInt(volSlider.value,10)+5));
 
   // ---------- Init ----------
+  applyTheme(currentTheme);
   buildTaalGrid();
   buildBeatStrip();
+  updateLoopSelects();
   updateStatsIdle();
   setBpm(bpm);
   setVolume(volume*100);
-  ensureAudio(); // Start loading audio immediately
+
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    if (btn.dataset.profile === soundProfile) btn.classList.add('active');
+  });
+
+  ensureAudio();
 })();

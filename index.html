@@ -9,8 +9,11 @@
 <body>
 <div class="app">
   <header>
-    <h1>Tabla Taal Metronome</h1>
-    <p>Practice with authentic taal cycles &mdash; sam, tali &amp; khali marked automatically.</p>
+    <div class="header-content">
+      <h1>Tabla Taal Metronome</h1>
+      <p>Practice with authentic taal cycles &mdash; sam, tali &amp; khali marked automatically.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
   </header>
 
   <section class="panel">
@@ -19,7 +22,43 @@
   </section>
 
   <section class="panel">
-    <h2 id="taalTitle">Beat Cycle</h2>
+    <h2>Controls</h2>
+    <div class="controls-grid">
+      <div class="control">
+        <label>Tempo <b id="bpmLabel">80 BPM</b></label>
+        <div class="row">
+          <button class="step-btn" id="bpmHalf">&divide;2</button>
+          <button class="step-btn" id="bpmDown5">&minus;5</button>
+          <button class="step-btn" id="bpmDown">&minus;</button>
+          <input type="range" id="bpmSlider" min="20" max="300" value="80">
+          <button class="step-btn" id="bpmUp">&plus;</button>
+          <button class="step-btn" id="bpmUp5">&plus;5</button>
+          <button class="step-btn" id="bpmDouble">&times;2</button>
+        </div>
+      </div>
+      <div class="control">
+        <label>Volume <b id="volLabel">80%</b></label>
+        <div class="row">
+          <button class="step-btn" id="volDown">&minus;</button>
+          <input type="range" id="volSlider" min="0" max="100" value="80">
+          <button class="step-btn" id="volUp">&plus;</button>
+        </div>
+      </div>
+    </div>
+    <div class="transport">
+      <button class="play-btn" id="playBtn">Start</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h2 id="taalTitle" style="margin:0;">Beat Cycle</h2>
+      <div class="row preset-row" style="margin:0;">
+        <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
+        <button class="preset-btn" data-bpm="120">Madhya (120)</button>
+        <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
+      </div>
+    </div>
     <div class="beat-strip" id="beatStrip"></div>
     <div class="legend">
       <span><i class="swatch sam"></i> Sam (beat 1)</span>
@@ -50,37 +89,59 @@
   </section>
 
   <section class="panel">
-    <h2>Controls</h2>
-    <div class="controls-grid">
-      <div class="control">
-        <label>Tempo <b id="bpmLabel">80 BPM</b></label>
-        <div class="row">
-          <button class="step-btn" id="bpmHalf">&divide;2</button>
-          <button class="step-btn" id="bpmDown5">&minus;5</button>
-          <button class="step-btn" id="bpmDown">&minus;</button>
-          <input type="range" id="bpmSlider" min="20" max="300" value="80">
-          <button class="step-btn" id="bpmUp">&plus;</button>
-          <button class="step-btn" id="bpmUp5">&plus;5</button>
-          <button class="step-btn" id="bpmDouble">&times;2</button>
-        </div>
-        <div class="row preset-row">
-          <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
-          <button class="preset-btn" data-bpm="120">Madhya (120)</button>
-          <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
-        </div>
+    <h2>Sound Profile</h2>
+    <div class="sound-profile-row">
+      <button class="profile-btn active" data-profile="default" title="Bright, balanced tabla-like sounds">Default</button>
+      <button class="profile-btn" data-profile="bright" title="Brighter, more articulate">Bright</button>
+      <button class="profile-btn" data-profile="mellow" title="Softer, warmer tones">Mellow</button>
+      <button class="profile-btn" data-profile="melodic" title="Pitched tones, less percussion">Melodic</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Practice Features</h2>
+    <div class="practice-panel">
+      <div class="practice-option">
+        <input type="checkbox" id="tapAlongMode">
+        <label for="tapAlongMode">Tap-Along Mode</label>
       </div>
-      <div class="control">
-        <label>Volume <b id="volLabel">80%</b></label>
-        <div class="row">
-          <button class="step-btn" id="volDown">&minus;</button>
-          <input type="range" id="volSlider" min="0" max="100" value="80">
-          <button class="step-btn" id="volUp">&plus;</button>
-        </div>
+      <div class="practice-option">
+        <input type="checkbox" id="loopMode">
+        <label for="loopMode">Loop Section</label>
+      </div>
+      <div class="practice-option">
+        <input type="checkbox" id="tempoRamp">
+        <label for="tempoRamp">Gradual Tempo Ramp</label>
+      </div>
+      <div class="practice-option">
+        <input type="checkbox" id="sessionTimer">
+        <label for="sessionTimer">Session Timer</label>
       </div>
     </div>
-    <div class="transport">
-      <button class="play-btn" id="playBtn">Start</button>
+    <div id="loopControls" class="loop-controls" style="display:none;">
+      <label>Loop:</label>
+      <select id="loopStart">
+        <option value="0">Beat 1</option>
+      </select>
+      <span>to</span>
+      <select id="loopEnd">
+        <option value="0">Beat 1</option>
+      </select>
     </div>
+    <div id="tempoRampControls" class="tempo-ramp-row" style="display:none;">
+      <label>Increase by:</label>
+      <input type="number" id="rampAmount" min="1" max="20" value="2">
+      <label>BPM every</label>
+      <input type="number" id="rampInterval" min="1" max="10" value="4">
+      <label>cycles</label>
+    </div>
+    <div id="sessionTimerControls" style="margin-top:8px;display:none;display:flex;gap:8px;align-items:center;">
+      <label for="timerDuration" style="font-size:.8rem;">Practice for:</label>
+      <input type="number" id="timerDuration" min="1" max="120" value="10" style="width:50px;">
+      <label style="font-size:.8rem;">minutes</label>
+      <span id="timerDisplay" style="font-size:.9rem;font-weight:600;margin-left:auto;font-variant-numeric:tabular-nums;"></span>
+    </div>
+    <div id="tapFeedback" class="tap-feedback" style="display:none;"></div>
   </section>
 
   <footer>
