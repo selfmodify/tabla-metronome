@@ -202,7 +202,7 @@
   /* Controls */
   .controls-grid{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:3fr 2fr;
     gap:18px;
   }
   @media (max-width:560px){ .controls-grid{ grid-template-columns:1fr; } }
@@ -377,7 +377,9 @@
       <div class="control">
         <label>Volume <b id="volLabel">80%</b></label>
         <div class="row">
+          <button class="step-btn" id="volDown">&minus;</button>
           <input type="range" id="volSlider" min="0" max="100" value="80">
+          <button class="step-btn" id="volUp">&plus;</button>
         </div>
       </div>
     </div>
@@ -494,6 +496,8 @@
   const bpmDouble = document.getElementById("bpmDouble");
   const volSlider = document.getElementById("volSlider");
   const volLabel = document.getElementById("volLabel");
+  const volDown = document.getElementById("volDown");
+  const volUp = document.getElementById("volUp");
   const playBtn = document.getElementById("playBtn");
 
   // ---------- Build taal selector ----------
@@ -750,6 +754,8 @@
     if (masterGain) masterGain.gain.value = volume;
   }
   volSlider.addEventListener("input", e=> setVolume(e.target.value));
+  volDown.addEventListener("click", ()=> setVolume(parseInt(volSlider.value,10)-5));
+  volUp.addEventListener("click", ()=> setVolume(parseInt(volSlider.value,10)+5));
 
   // ---------- Init ----------
   buildTaalGrid();
