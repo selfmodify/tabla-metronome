@@ -214,16 +214,32 @@ header p{
   align-items: center;
   margin-bottom: 12px;
 }
+.beat-cycle-header-row h2 {
+  flex: 1;
+}
 .header-stats {
   display: flex;
   gap: 10px;
+  flex: 2;
+  justify-content: flex-end;
 }
 .header-stats .stat-box {
   padding: 8px 10px;
-  flex: 0 1 120px; /* Don't grow, shrink if needed, base width 120px */
+  flex: 0 1 110px; /* Don't grow, shrink if needed, base width 110px */
+}
+.header-stats .stat-box:first-child {
+  flex-basis: 180px; /* Make the beat counter ~50% wider */
 }
 .header-stats .stat-box .label { font-size: .6rem; }
 .header-stats .stat-box .value { font-size: 1.2rem; }
+
+/* Make the text inside the main beat counter larger */
+.header-stats .stat-box:first-child .label {
+  font-size: .7rem;
+}
+.header-stats .stat-box:first-child .value {
+  font-size: 1.6rem;
+}
 
 /* Controls */
 .controls-grid{
