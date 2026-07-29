@@ -58,43 +58,19 @@
     return table;
   }
 
-  // Sound profiles
-  const SOUND_PROFILES = {
-    default: {
-      samFreq1: 1046, samDur1: 0.16, samPeak1: 1.0,
-      samFreq2: 196, samDur2: 0.22, samPeak2: 0.6,
-      taliFreq: 784, taliDur: 0.13, taliPeak: 0.75,
-      khaliFilterFreq: 1400, khaliDur: 0.14, khaliPeak: 0.45,
-      plainFreq: 440, plainDur: 0.07, plainPeak: 0.28
-    },
-    bright: {
-      samFreq1: 1200, samDur1: 0.14, samPeak1: 1.1,
-      samFreq2: 220, samDur2: 0.20, samPeak2: 0.7,
-      taliFreq: 900, taliDur: 0.11, taliPeak: 0.85,
-      khaliFilterFreq: 1600, khaliDur: 0.12, khaliPeak: 0.5,
-      plainFreq: 550, plainDur: 0.06, plainPeak: 0.32
-    },
-    mellow: {
-      samFreq1: 880, samDur1: 0.20, samPeak1: 0.9,
-      samFreq2: 146, samDur2: 0.25, samPeak2: 0.5,
-      taliFreq: 659, taliDur: 0.15, taliPeak: 0.65,
-      khaliFilterFreq: 1200, khaliDur: 0.16, khaliPeak: 0.4,
-      plainFreq: 330, plainDur: 0.09, plainPeak: 0.22
-    },
-    melodic: {
-      samFreq1: 1318, samDur1: 0.18, samPeak1: 0.95,
-      samFreq2: 659, samDur2: 0.18, samPeak2: 0.6,
-      taliFreq: 1047, taliDur: 0.14, taliPeak: 0.7,
-      khaliFilterFreq: 1800, khaliDur: 0.13, khaliPeak: 0.35,
-      plainFreq: 587, plainDur: 0.08, plainPeak: 0.25
-    }
+  // Default sound parameters
+  const DEFAULT_SOUND_PROFILE = {
+    samFreq1: 1046, samDur1: 0.16, samPeak1: 1.0,
+    samFreq2: 196, samDur2: 0.22, samPeak2: 0.6,
+    taliFreq: 784, taliDur: 0.13, taliPeak: 0.75,
+    khaliFilterFreq: 1400, khaliDur: 0.14, khaliPeak: 0.45,
+    plainFreq: 440, plainDur: 0.07, plainPeak: 0.28
   };
 
   // ---------- State ----------
   let currentTaalKey = localStorage.getItem('tablaTaal') || "teentaal";
   let bpm = parseInt(localStorage.getItem('tablaBpm'), 10) || 80;
   let volume = parseFloat(localStorage.getItem('tablaVol')) || 0.8;
-  let soundProfile = localStorage.getItem('tablaSoundProfile') || 'default';
   let currentTheme = localStorage.getItem('tablaTheme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
   let audioBuffers = {};
@@ -133,7 +109,7 @@
   const TAP_SYNC_TOLERANCE_MS = 100;
 
   // ---------- DOM refs ----------
-  const taalGrid = document.getElementById("taalGrid");
+  const taalSelector = document.getElementById("taalSelector");
   const taalTitle = document.getElementById("taalTitle");
   const beatStrip = document.getElementById("beatStrip");
   const bigBol = document.getElementById("bigBol");
@@ -183,18 +159,18 @@
   });
 
   // ---------- Build taal selector ----------
-  function buildTaalGrid(){
-    taalGrid.innerHTML = "";
+  function buildTaalSelector(){
+    taalSelector.innerHTML = "";
     Object.keys(TAALS).forEach(key=>{
       const t = TAALS[key];
-      const btn = document.createElement("button");
-      btn.className = "taal-btn" + (key===currentTaalKey ? " active":"");
-      btn.dataset.key = key;
-      btn.innerHTML = `<div class="name">${t.name}</div><div class="meta">${totalBeats(t)} beats &middot; ${t.vibhags.length} vibhags</div>`;
-      btn.addEventListener("click", ()=> selectTaal(key));
-      taalGrid.appendChild(btn);
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = `${t.name} (${totalBeats(t)} beats)`;
+      if (key === currentTaalKey) opt.selected = true;
+      taalSelector.appendChild(opt);
     });
   }
+  taalSelector.addEventListener("change", (e)=> selectTaal(e.target.value));
 
   function selectTaal(key){
     if (key === currentTaalKey) return;
@@ -202,7 +178,6 @@
     localStorage.setItem('tablaTaal', key);
     beatTable = beatInfoTable(TAALS[key]);
     stopPlayback(true);
-    [...taalGrid.children].forEach(b=> b.classList.toggle("active", b.dataset.key===key));
     buildBeatStrip();
     updateLoopSelects();
     updateStatsIdle();
@@ -311,7 +286,7 @@
   }
 
   function playClick(accent, time){
-    const profile = SOUND_PROFILES[soundProfile] || SOUND_PROFILES.default;
+    const profile = DEFAULT_SOUND_PROFILE;
     let volume_mult = 1.0;
     if (accent === "sam") volume_mult = 1.2;
     else if (accent === "tali") volume_mult = 1.1;
@@ -479,11 +454,10 @@
     isPlaying = false;
     if (timerID) clearTimeout(timerID);
     if (rafID) cancelAnimationFrame(rafID);
-    beatQueue = [];
-    playBtn.textContent = "Start";
-    playBtn.classList.remove("playing");
-    if (!silent) updateStatsIdle();
-    else updateStatsIdle();
+    beatQueue = []; // Clear any scheduled beats
+    playBtn.textContent = "Start"; // Reset button text
+    playBtn.classList.remove("playing"); // Remove playing class
+    if (!silent) { updateStatsIdle(); } // Update stats display, unless silent stop (e.g., taal change)
   }
 
   playBtn.addEventListener("click", ()=>{
@@ -580,16 +554,6 @@
     sessionTimerDuration = Math.max(1, parseInt(e.target.value, 10));
   });
 
-  // Sound profile buttons
-  document.querySelectorAll('.profile-btn').forEach(btn => {
-    btn.addEventListener('click', (e)=> {
-      soundProfile = e.target.dataset.profile;
-      localStorage.setItem('tablaSoundProfile', soundProfile);
-      document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-    });
-  });
-
   // ---------- Tempo controls ----------
   function setBpm(v){
     bpm = Math.min(300, Math.max(20, Math.round(v)));
@@ -632,16 +596,12 @@
 
   // ---------- Init ----------
   applyTheme(currentTheme);
-  buildTaalGrid();
+  buildTaalSelector();
   buildBeatStrip();
   updateLoopSelects();
   updateStatsIdle();
   setBpm(bpm);
   setVolume(volume*100);
-
-  document.querySelectorAll('.profile-btn').forEach(btn => {
-    if (btn.dataset.profile === soundProfile) btn.classList.add('active');
-  });
 
   ensureAudio();
 })();

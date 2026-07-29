@@ -10,6 +10,10 @@ A web-based metronome for practicing Indian classical percussion (tabla) taals. 
 - **Tempo Control**: 20–300 BPM with slider, ±1 buttons, and tap-tempo
 - **Volume Control**: Synthesized clicks (no audio files needed)
 - **Stats**: Beat counter, vibhag counter, elapsed time in hh:mm:ss
+- **Sound Profiles**: Choose from 'Default', 'Bright', 'Mellow', or 'Melodic' sound characteristics.
+- **Practice Features**:
+  - **Tap-Along Mode**: Tap along to the beat and get feedback on your sync.
+  - **Loop Section**: Practice specific sections of a taal by setting start and end beats.
 - **Keyboard Shortcut**: Space bar to start/stop
 
 ## Try It

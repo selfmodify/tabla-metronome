@@ -17,32 +17,36 @@
   </header>
 
   <section class="panel">
-    <h2>Select Taal</h2>
-    <div class="taal-grid" id="taalGrid"></div>
-  </section>
-
-  <section class="panel">
     <h2>Controls</h2>
     <div class="controls-grid">
-      <div class="control">
-        <label>Tempo <b id="bpmLabel">80 BPM</b></label>
-        <div class="row">
-          <button class="step-btn" id="bpmHalf">&divide;2</button>
-          <button class="step-btn" id="bpmDown5">&minus;5</button>
-          <button class="step-btn" id="bpmDown">&minus;</button>
-          <input type="range" id="bpmSlider" min="20" max="300" value="80">
-          <button class="step-btn" id="bpmUp">&plus;</button>
-          <button class="step-btn" id="bpmUp5">&plus;5</button>
-          <button class="step-btn" id="bpmDouble">&times;2</button>
+      <div class="main-controls">
+        <div class="control">
+          <label>Tempo <b id="bpmLabel">80 BPM</b></label>
+          <div class="row">
+            <button class="step-btn" id="bpmHalf">&divide;2</button>
+            <button class="step-btn" id="bpmDown5">&minus;5</button>
+            <button class="step-btn" id="bpmDown">&minus;</button>
+            <input type="range" id="bpmSlider" min="20" max="300" value="80">
+            <button class="step-btn" id="bpmUp">&plus;</button>
+            <button class="step-btn" id="bpmUp5">&plus;5</button>
+            <button class="step-btn" id="bpmDouble">&times;2</button>
+          </div>
+        </div>
+        <div class="control">
+          <label>Volume <b id="volLabel">80%</b></label>
+          <div class="row">
+            <button class="step-btn" id="volDown">&minus;5</button>
+            <input type="range" id="volSlider" min="0" max="100" value="80">
+            <button class="step-btn" id="volUp">&plus;5</button>
+          </div>
         </div>
       </div>
-      <div class="control">
-        <label>Volume <b id="volLabel">80%</b></label>
-        <div class="row">
-          <button class="step-btn" id="volDown">&minus;</button>
-          <input type="range" id="volSlider" min="0" max="100" value="80">
-          <button class="step-btn" id="volUp">&plus;</button>
-        </div>
+      <div class="preset-controls">
+        <label class="control-label">Taal</label>
+        <select id="taalSelector" class="taal-selector"></select>
+        <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
+        <button class="preset-btn" data-bpm="120">Madhya (120)</button>
+        <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
       </div>
     </div>
     <div class="transport">
@@ -51,12 +55,21 @@
   </section>
 
   <section class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div class="beat-cycle-header-row">
       <h2 id="taalTitle" style="margin:0;">Beat Cycle</h2>
-      <div class="row preset-row" style="margin:0;">
-        <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
-        <button class="preset-btn" data-bpm="120">Madhya (120)</button>
-        <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
+      <div class="header-stats">
+        <div class="stat-box">
+          <div class="label">Beat</div>
+          <div class="value" id="beatCount">&mdash; / &mdash;</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Vibhag</div>
+          <div class="value" id="vibhagCount">&mdash;</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Elapsed Time</div>
+          <div class="value" id="elapsedTime">00:00:00</div>
+        </div>
       </div>
     </div>
     <div class="beat-strip" id="beatStrip"></div>
@@ -68,33 +81,6 @@
     <div class="now-playing">
       <div class="big-bol" id="bigBol">&nbsp;</div>
       <div class="sub" id="cycleSub">Press Start to begin</div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="stats">
-      <div class="stat-box">
-        <div class="label">Beat</div>
-        <div class="value" id="beatCount">&mdash; / &mdash;</div>
-      </div>
-      <div class="stat-box">
-        <div class="label">Vibhag</div>
-        <div class="value" id="vibhagCount">&mdash;</div>
-      </div>
-      <div class="stat-box">
-        <div class="label">Elapsed Time</div>
-        <div class="value" id="elapsedTime">00:00:00</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>Sound Profile</h2>
-    <div class="sound-profile-row">
-      <button class="profile-btn active" data-profile="default" title="Bright, balanced tabla-like sounds">Default</button>
-      <button class="profile-btn" data-profile="bright" title="Brighter, more articulate">Bright</button>
-      <button class="profile-btn" data-profile="mellow" title="Softer, warmer tones">Mellow</button>
-      <button class="profile-btn" data-profile="melodic" title="Pitched tones, less percussion">Melodic</button>
     </div>
   </section>
 
