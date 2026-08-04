@@ -117,7 +117,6 @@
   const taalTitle = document.getElementById("taalTitle");
   const beatStrip = document.getElementById("beatStrip");
   const bigBol = document.getElementById("bigBol");
-  const cycleSub = document.getElementById("cycleSub");
   const beatCountEl = document.getElementById("beatCount");
   const vibhagCountEl = document.getElementById("vibhagCount");
   const elapsedEl = document.getElementById("elapsedTime");
@@ -421,8 +420,6 @@
     beatCountEl.textContent = `${beatNumber+1} / ${beatTable.length}`;
     vibhagCountEl.textContent = `${info.vibhagIndex+1} / ${taal.vibhags.length}`;
     bigBol.textContent = taal.bols[beatNumber] || "";
-    const accentLabel = info.accent==="sam" ? "Sam" : info.accent==="tali" ? "Tali (clap)" : info.accent==="khali" ? "Khali (wave)" : "";
-    cycleSub.textContent = accentLabel;
   }
 
   function formatTime(totalSeconds){
