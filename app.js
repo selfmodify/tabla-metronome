@@ -480,39 +480,46 @@
     tapTimings.push(now);
     tapTimings = tapTimings.filter(t => now - t < 3000);
 
-    if (tapTimings.length >= 2){
-      const intervals = [];
-      for (let i=1;i<tapTimings.length;i++){
-        intervals.push(tapTimings[i] - tapTimings[i-1]);
-      }
-      const avgTapInterval = intervals.reduce((a,b)=>a+b,0) / intervals.length;
-      const expectedInterval = secondsPerBeat() * 1000;
-      const diffMs = Math.abs(avgTapInterval - expectedInterval);
-      const accuracy = Math.max(0, 100 - (diffMs / expectedInterval) * 100);
-
-      tapStats.totalTaps++;
-      tapStats.accuracyScores.push(accuracy);
-      tapStats.avgAccuracy = tapStats.accuracyScores.reduce((a,b)=>a+b,0) / tapStats.accuracyScores.length;
-      tapStats.bestAccuracy = Math.max(tapStats.bestAccuracy, accuracy);
-      tapStats.worstAccuracy = tapStats.accuracyScores.length === 1 ? accuracy : Math.min(...tapStats.accuracyScores);
-
-      const feedbackEl = document.getElementById("tapIndicator");
-      if (feedbackEl) feedbackEl.classList.add("tap-flash");
+    const feedbackEl = document.getElementById("tapIndicator");
+    if (feedbackEl) {
+      feedbackEl.classList.add("tap-flash");
       setTimeout(() => feedbackEl?.classList.remove("tap-flash"), 200);
-
-      if (diffMs < TAP_SYNC_TOLERANCE_MS){
-        tapFeedback.textContent = `✓ In sync! (${accuracy.toFixed(0)}%)`;
-        tapFeedback.className = "tap-feedback good";
-      } else if (diffMs < TAP_SYNC_TOLERANCE_MS * 2){
-        tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up" : "← Slow down"} (${accuracy.toFixed(0)}%)`;
-        tapFeedback.className = "tap-feedback";
-      } else {
-        tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up more" : "← Slow down more"} (${accuracy.toFixed(0)}%)`;
-        tapFeedback.className = "tap-feedback bad";
-      }
-      tapFeedback.style.display = "block";
-      updateTapStats();
     }
+
+    if (tapTimings.length < 2){
+      tapFeedback.textContent = "Tap again to sync...";
+      tapFeedback.className = "tap-feedback";
+      tapFeedback.style.display = "block";
+      return;
+    }
+
+    const intervals = [];
+    for (let i=1;i<tapTimings.length;i++){
+      intervals.push(tapTimings[i] - tapTimings[i-1]);
+    }
+    const avgTapInterval = intervals.reduce((a,b)=>a+b,0) / intervals.length;
+    const expectedInterval = secondsPerBeat() * 1000;
+    const diffMs = Math.abs(avgTapInterval - expectedInterval);
+    const accuracy = Math.max(0, 100 - (diffMs / expectedInterval) * 100);
+
+    tapStats.totalTaps++;
+    tapStats.accuracyScores.push(accuracy);
+    tapStats.avgAccuracy = tapStats.accuracyScores.reduce((a,b)=>a+b,0) / tapStats.accuracyScores.length;
+    tapStats.bestAccuracy = Math.max(tapStats.bestAccuracy, accuracy);
+    tapStats.worstAccuracy = tapStats.accuracyScores.length === 1 ? accuracy : Math.min(...tapStats.accuracyScores);
+
+    if (diffMs < TAP_SYNC_TOLERANCE_MS){
+      tapFeedback.textContent = `✓ In sync! (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback good";
+    } else if (diffMs < TAP_SYNC_TOLERANCE_MS * 2){
+      tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up" : "← Slow down"} (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback";
+    } else {
+      tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up more" : "← Slow down more"} (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback bad";
+    }
+    tapFeedback.style.display = "block";
+    updateTapStats();
   }
 
   function updateTapStats(){
