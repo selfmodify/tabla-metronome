@@ -103,10 +103,14 @@
   let sessionTimerStart = 0;
   let lastTapTime = 0;
   let tapTimings = [];
+  let tapStats = { totalTaps: 0, accuracyScores: [], avgAccuracy: 0, bestAccuracy: 100, worstAccuracy: 0 };
+  let micStream = null;
+  let audioAnalyser = null;
 
   const LOOKAHEAD_MS = 25;
   const SCHEDULE_AHEAD = 0.12;
   const TAP_SYNC_TOLERANCE_MS = 100;
+  const MIC_THRESHOLD = 0.03;
 
   // ---------- DOM refs ----------
   const taalSelector = document.getElementById("taalSelector");
@@ -447,16 +451,18 @@
     scheduler();
     renderBeat(currentBeatNumber);
     rafID = requestAnimationFrame(uiLoop);
+    if (tapAlongMode) startMicDetection();
   }
 
   function stopPlayback(silent){
     isPlaying = false;
     if (timerID) clearTimeout(timerID);
     if (rafID) cancelAnimationFrame(rafID);
-    beatQueue = []; // Clear any scheduled beats
-    playBtn.textContent = "Start"; // Reset button text
-    playBtn.classList.remove("playing"); // Remove playing class
-    if (!silent) { updateStatsIdle(); } // Update stats display, unless silent stop (e.g., taal change)
+    beatQueue = [];
+    playBtn.textContent = "Start";
+    playBtn.classList.remove("playing");
+    stopMicDetection();
+    if (!silent) { updateStatsIdle(); }
   }
 
   playBtn.addEventListener("click", ()=>{
@@ -485,18 +491,41 @@
       const avgTapInterval = intervals.reduce((a,b)=>a+b,0) / intervals.length;
       const expectedInterval = secondsPerBeat() * 1000;
       const diffMs = Math.abs(avgTapInterval - expectedInterval);
+      const accuracy = Math.max(0, 100 - (diffMs / expectedInterval) * 100);
+
+      tapStats.totalTaps++;
+      tapStats.accuracyScores.push(accuracy);
+      tapStats.avgAccuracy = tapStats.accuracyScores.reduce((a,b)=>a+b,0) / tapStats.accuracyScores.length;
+      tapStats.bestAccuracy = Math.max(tapStats.bestAccuracy, accuracy);
+      tapStats.worstAccuracy = tapStats.accuracyScores.length === 1 ? accuracy : Math.min(...tapStats.accuracyScores);
+
+      const feedbackEl = document.getElementById("tapIndicator");
+      if (feedbackEl) feedbackEl.classList.add("tap-flash");
+      setTimeout(() => feedbackEl?.classList.remove("tap-flash"), 200);
 
       if (diffMs < TAP_SYNC_TOLERANCE_MS){
-        tapFeedback.textContent = "✓ In sync!";
+        tapFeedback.textContent = `✓ In sync! (${accuracy.toFixed(0)}%)`;
         tapFeedback.className = "tap-feedback good";
       } else if (diffMs < TAP_SYNC_TOLERANCE_MS * 2){
-        tapFeedback.textContent = diffMs < expectedInterval ? "→ Speed up" : "← Slow down";
+        tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up" : "← Slow down"} (${accuracy.toFixed(0)}%)`;
         tapFeedback.className = "tap-feedback";
       } else {
-        tapFeedback.textContent = diffMs < expectedInterval ? "→ Speed up more" : "← Slow down more";
+        tapFeedback.textContent = `${diffMs < expectedInterval ? "→ Speed up more" : "← Slow down more"} (${accuracy.toFixed(0)}%)`;
         tapFeedback.className = "tap-feedback bad";
       }
       tapFeedback.style.display = "block";
+      updateTapStats();
+    }
+  }
+
+  function updateTapStats(){
+    const statsEl = document.getElementById("tapStats");
+    if (statsEl && tapStats.totalTaps > 0){
+      statsEl.innerHTML = `
+        <div style="font-size:.75rem;color:var(--text-dim);">
+          Taps: ${tapStats.totalTaps} | Avg: ${tapStats.avgAccuracy.toFixed(0)}% | Best: ${tapStats.bestAccuracy.toFixed(0)}% | Worst: ${tapStats.worstAccuracy.toFixed(0)}%
+        </div>
+      `;
     }
   }
 
@@ -507,11 +536,73 @@
     }
   });
 
+  // Mouse/Touch tap support
+  document.addEventListener("click", (e)=>{
+    if (tapAlongMode && isPlaying && e.target.id !== "playBtn"){
+      detectTapSync();
+    }
+  });
+
+  document.addEventListener("touchstart", (e)=>{
+    if (tapAlongMode && isPlaying){
+      detectTapSync();
+    }
+  }, { passive: true });
+
+  // Microphone-based tap detection
+  async function startMicDetection(){
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamAudioSource(micStream);
+      audioAnalyser = audioCtx.createAnalyser();
+      audioAnalyser.fftSize = 2048;
+      source.connect(audioAnalyser);
+
+      const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+      let lastPeakTime = 0;
+      const peakDebounce = secondsPerBeat() * 1000 * 0.3;
+
+      function detectPeaks(){
+        if (!tapAlongMode || !isPlaying) { return; }
+        audioAnalyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a,b)=>a+b,0) / dataArray.length;
+
+        if (average > MIC_THRESHOLD * 255){
+          const now = performance.now();
+          if (now - lastPeakTime > peakDebounce){
+            detectTapSync();
+            lastPeakTime = now;
+          }
+        }
+        requestAnimationFrame(detectPeaks);
+      }
+      detectPeaks();
+    } catch (err) {
+      console.log("Mic access denied or unavailable");
+    }
+  }
+
+  function stopMicDetection(){
+    if (micStream){
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+  }
+
   // ---------- Practice features setup ----------
   tapAlongCb.addEventListener("change", (e)=> {
     tapAlongMode = e.target.checked;
     tapFeedback.style.display = tapAlongMode && isPlaying ? "block" : "none";
     tapTimings = [];
+    tapStats = { totalTaps: 0, accuracyScores: [], avgAccuracy: 0, bestAccuracy: 100, worstAccuracy: 0 };
+    const statsEl = document.getElementById("tapStats");
+    if (statsEl) statsEl.innerHTML = "";
+    if (tapAlongMode && isPlaying){
+      startMicDetection();
+    } else {
+      stopMicDetection();
+    }
   });
 
   loopModeCb.addEventListener("change", (e)=> {
