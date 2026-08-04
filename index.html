@@ -17,7 +17,6 @@
   </header>
 
   <section class="panel">
-    <h2>Controls</h2>
     <div class="controls-grid">
       <div class="main-controls">
         <div class="control">
@@ -42,15 +41,14 @@
         </div>
       </div>
       <div class="preset-controls">
-        <label class="control-label">Taal</label>
         <select id="taalSelector" class="taal-selector"></select>
         <button class="preset-btn" data-bpm="60">Vilambit (60)</button>
         <button class="preset-btn" data-bpm="120">Madhya (120)</button>
         <button class="preset-btn" data-bpm="240">Dhrut (240)</button>
+        <div class="transport">
+          <button class="play-btn" id="playBtn">Start</button>
+        </div>
       </div>
-    </div>
-    <div class="transport">
-      <button class="play-btn" id="playBtn">Start</button>
     </div>
   </section>
 
@@ -73,14 +71,8 @@
       </div>
     </div>
     <div class="beat-strip" id="beatStrip"></div>
-    <div class="legend">
-      <span><i class="swatch sam"></i> Sam (beat 1)</span>
-      <span><i class="swatch tali"></i> Tali (clap)</span>
-      <span><i class="swatch khali"></i> Khali (wave)</span>
-    </div>
     <div class="now-playing">
       <div class="big-bol" id="bigBol">&nbsp;</div>
-      <div class="sub" id="cycleSub">Press Start to begin</div>
     </div>
   </section>
 

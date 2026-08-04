@@ -218,7 +218,6 @@
     beatCountEl.textContent = `— / ${totalBeats(taal)}`;
     vibhagCountEl.textContent = `— / ${taal.vibhags.length}`;
     bigBol.innerHTML = "&nbsp;";
-    cycleSub.textContent = "Press Start to begin";
     elapsedEl.textContent = "00:00:00";
     beatCircleEls.forEach(el=> el.classList.remove("current"));
   }

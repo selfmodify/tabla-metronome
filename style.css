@@ -39,7 +39,7 @@ body{
 }
 .app{
   width:100%;
-  max-width:880px;
+  max-width:750px;
 }
 header{
   text-align:center;
@@ -82,8 +82,8 @@ header p{
   background:var(--panel);
   border:1px solid var(--panel-border);
   border-radius:var(--radius);
-  padding:18px 20px;
-  margin-bottom:16px;
+  padding:16px 18px;
+  margin-bottom:14px;
   box-shadow:0 4px 18px rgba(0,0,0,.25);
 }
 .panel h2{
@@ -100,9 +100,9 @@ header p{
   display:flex;
   flex-wrap:wrap;
   gap:12px;
-  padding:14px 8px 6px;
+  padding:10px 8px 4px;
   max-width:100%;
-  min-height:190px;
+  min-height:140px;
   align-items:flex-start;
   justify-content:center;
 }
@@ -121,9 +121,9 @@ header p{
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:8px;
+  gap:6px;
   width:64px;
-  height:110px; /* Set a fixed height to prevent layout shift */
+  height:90px;
 }
 .dot{
   width:34px;
@@ -244,8 +244,8 @@ header p{
 /* Controls */
 .controls-grid{
   display:grid;
-  grid-template-columns:2fr 1fr;
-  gap:18px;
+  grid-template-columns:1.53fr 1fr;
+  gap:14px;
   align-items: start;
 }
 @media (max-width: 640px) {
@@ -254,17 +254,16 @@ header p{
 .main-controls {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   background: var(--bg2);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  padding: 16px;
+  padding: 20px;
 }
 .control-label {
   font-size:.78rem; text-transform:uppercase; letter-spacing:1.4px; color:var(--text-dim); font-weight:600;
   margin-bottom: -2px;
 }
-.control{ }
 .control label{
   display:flex;
   justify-content:space-between;
@@ -300,11 +299,11 @@ input[type=range]::-moz-range-thumb{
 .step-btn{
   background:var(--bg2);
   border:1px solid var(--panel-border);
-  color:var(--text); height:30px;
+  color:var(--text); height:38px;
   border-radius:8px;
   cursor:pointer;
-  font-size:1rem;
-  padding:0 4px;
+  font-size:1.1rem;
+  padding:0 8px;
   line-height:1;
 }
 .step-btn:hover{ border-color:var(--gold-dim); background:var(--bg); }
