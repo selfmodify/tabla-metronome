@@ -591,16 +591,7 @@
         console.log("AudioContext resumed, state:", audioCtx.state);
       }
 
-      let source;
-      if (typeof audioCtx.createMediaStreamSource === 'function') {
-        console.log("Using createMediaStreamSource");
-        source = audioCtx.createMediaStreamSource(micStream);
-      } else if (typeof audioCtx.createMediaStreamAudioSource === 'function') {
-        console.log("Using createMediaStreamAudioSource");
-        source = audioCtx.createMediaStreamAudioSource(micStream);
-      } else {
-        throw new Error("Neither createMediaStreamSource nor createMediaStreamAudioSource available");
-      }
+      const source = audioCtx.createMediaStreamSource(micStream);
       console.log("MediaStream source created successfully");
 
       audioAnalyser = audioCtx.createAnalyser();
