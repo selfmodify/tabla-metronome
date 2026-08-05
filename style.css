@@ -458,10 +458,17 @@ input[type=range]::-moz-range-thumb{
   text-align:center;
 }
 
+.footer-version {
+  font-size: .7rem;
+  color: var(--gold-dim);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
 footer{
   text-align:center;
   color:var(--text-dim);
   font-size:.72rem;
-  margin-top:8px;
+  margin-top:16px;
   line-height:1.5;
 }
