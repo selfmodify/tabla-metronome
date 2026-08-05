@@ -553,20 +553,25 @@
   // Microphone-based tabla beat detection
   async function startMicDetection(){
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
-      const micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = micAudioCtx.createMediaStreamAudioSource(micStream);
-      audioAnalyser = micAudioCtx.createAnalyser();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("getUserMedia not supported");
+        return;
+      }
+
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      ensureAudio();
+      const source = audioCtx.createMediaStreamAudioSource(micStream);
+      audioAnalyser = audioCtx.createAnalyser();
       audioAnalyser.fftSize = 512;
       source.connect(audioAnalyser);
 
       const timeDomain = new Uint8Array(audioAnalyser.fftSize);
-      let lastPeakTime = 0;
 
       function detectTableaHits(){
-        if (!tapAlongMode || !isPlaying) { return; }
-        audioAnalyser.getByteTimeDomainData(timeDomain);
+        if (!tapAlongMode || !isPlaying) return;
 
+        audioAnalyser.getByteTimeDomainData(timeDomain);
         let rms = 0;
         for (let i = 0; i < timeDomain.length; i++){
           const normalized = (timeDomain[i] - 128) / 128;
@@ -582,8 +587,11 @@
         requestAnimationFrame(detectTableaHits);
       }
       detectTableaHits();
+      console.log("Microphone listening started");
     } catch (err) {
-      console.log("Mic access denied or unavailable:", err);
+      console.error("Mic error:", err.message);
+      tapFeedback.textContent = "Microphone access denied";
+      tapFeedback.style.display = "block";
     }
   }
 
