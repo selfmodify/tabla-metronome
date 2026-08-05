@@ -572,31 +572,29 @@
         return;
       }
 
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      // Request both audio and video (video won't be displayed, but this helps with permissions)
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false
+      });
       console.log("Microphone stream acquired");
 
-      // Create a fresh AudioContext just for the microphone
-      const micCtx = new (window.AudioContext || window.webkitAudioContext)();
-      console.log("Microphone AudioContext created:", micCtx.constructor.name);
-      console.log("Available methods on audioCtx:", Object.getOwnPropertyNames(Object.getPrototypeOf(micCtx)).filter(m => m.includes('MediaStream')));
+      // Use the existing metronome AudioContext
+      ensureAudio();
+      console.log("Using existing AudioContext:", audioCtx.constructor.name);
+      console.log("AudioContext state:", audioCtx.state);
 
       // Resume the audio context if it's suspended
-      if (micCtx.state === 'suspended') {
+      if (audioCtx.state === 'suspended') {
         console.log("AudioContext suspended, resuming...");
-        await micCtx.resume();
-      }
-      console.log("AudioContext state:", micCtx.state);
-
-      if (typeof micCtx.createMediaStreamAudioSource !== 'function') {
-        console.error("createMediaStreamAudioSource is:", typeof micCtx.createMediaStreamAudioSource);
-        console.error("micCtx methods:", Object.keys(micCtx));
-        throw new Error("createMediaStreamAudioSource method not available");
+        await audioCtx.resume();
+        console.log("AudioContext resumed, state:", audioCtx.state);
       }
 
-      const source = micCtx.createMediaStreamAudioSource(micStream);
-      console.log("MediaStreamAudioSource created");
+      const source = audioCtx.createMediaStreamAudioSource(micStream);
+      console.log("MediaStreamAudioSource created successfully");
 
-      audioAnalyser = micCtx.createAnalyser();
+      audioAnalyser = audioCtx.createAnalyser();
       audioAnalyser.fftSize = 512;
       source.connect(audioAnalyser);
       console.log("Microphone pipeline connected successfully");
