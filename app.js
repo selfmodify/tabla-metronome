@@ -106,11 +106,14 @@
   let tapStats = { totalTaps: 0, accuracyScores: [], avgAccuracy: 0, bestAccuracy: 100, worstAccuracy: 0 };
   let micStream = null;
   let audioAnalyser = null;
+  let lastDetectedPeakTime = 0;
+  let peakHistory = [];
 
   const LOOKAHEAD_MS = 25;
   const SCHEDULE_AHEAD = 0.12;
   const TAP_SYNC_TOLERANCE_MS = 100;
-  const MIC_THRESHOLD = 0.03;
+  const MIC_PEAK_THRESHOLD = 0.15;
+  const MIC_PEAK_DEBOUNCE_MS = 150;
 
   // ---------- DOM refs ----------
   const taalSelector = document.getElementById("taalSelector");
@@ -553,38 +556,75 @@
     }
   }, { passive: true });
 
-  // Microphone-based tap detection
+  // Microphone-based tabla beat detection
   async function startMicDetection(){
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioCtx.createMediaStreamAudioSource(micStream);
       audioAnalyser = audioCtx.createAnalyser();
-      audioAnalyser.fftSize = 2048;
+      audioAnalyser.fftSize = 512;
       source.connect(audioAnalyser);
 
-      const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+      const timeDomain = new Uint8Array(audioAnalyser.fftSize);
       let lastPeakTime = 0;
-      const peakDebounce = secondsPerBeat() * 1000 * 0.3;
 
-      function detectPeaks(){
+      function detectTableaHits(){
         if (!tapAlongMode || !isPlaying) { return; }
-        audioAnalyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a,b)=>a+b,0) / dataArray.length;
+        audioAnalyser.getByteTimeDomainData(timeDomain);
 
-        if (average > MIC_THRESHOLD * 255){
-          const now = performance.now();
-          if (now - lastPeakTime > peakDebounce){
-            detectTapSync();
-            lastPeakTime = now;
-          }
+        let rms = 0;
+        for (let i = 0; i < timeDomain.length; i++){
+          const normalized = (timeDomain[i] - 128) / 128;
+          rms += normalized * normalized;
         }
-        requestAnimationFrame(detectPeaks);
+        rms = Math.sqrt(rms / timeDomain.length);
+
+        const now = performance.now();
+        if (rms > MIC_PEAK_THRESHOLD && now - lastDetectedPeakTime > MIC_PEAK_DEBOUNCE_MS){
+          detectTableaTap();
+          lastDetectedPeakTime = now;
+        }
+        requestAnimationFrame(detectTableaHits);
       }
-      detectPeaks();
+      detectTableaHits();
     } catch (err) {
-      console.log("Mic access denied or unavailable");
+      console.log("Mic access denied or unavailable:", err);
     }
+  }
+
+  function detectTableaTap(){
+    const now = performance.now();
+    const expectedInterval = secondsPerBeat() * 1000;
+    const timeSinceLastBeat = now - nextNoteTime;
+    const offsetMs = Math.abs(timeSinceLastBeat % expectedInterval);
+    const accuracy = Math.max(0, 100 - (offsetMs / expectedInterval) * 100);
+
+    tapStats.totalTaps++;
+    tapStats.accuracyScores.push(accuracy);
+    tapStats.avgAccuracy = tapStats.accuracyScores.reduce((a,b)=>a+b,0) / tapStats.accuracyScores.length;
+    tapStats.bestAccuracy = Math.max(tapStats.bestAccuracy, accuracy);
+    tapStats.worstAccuracy = Math.min(...tapStats.accuracyScores);
+
+    const feedbackEl = document.getElementById("tapIndicator");
+    if (feedbackEl) {
+      feedbackEl.classList.add("tap-flash");
+      setTimeout(() => feedbackEl?.classList.remove("tap-flash"), 150);
+    }
+
+    const timingOffset = offsetMs < expectedInterval / 2 ? offsetMs : offsetMs - expectedInterval;
+    if (Math.abs(timingOffset) < TAP_SYNC_TOLERANCE_MS){
+      tapFeedback.textContent = `✓ Perfect! (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback good";
+    } else if (timingOffset > 0){
+      tapFeedback.textContent = `← Ahead by ${timingOffset.toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback";
+    } else {
+      tapFeedback.textContent = `→ Late by ${Math.abs(timingOffset).toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
+      tapFeedback.className = "tap-feedback";
+    }
+    tapFeedback.style.display = "block";
+    updateTapStats();
   }
 
   function stopMicDetection(){
