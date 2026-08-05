@@ -591,8 +591,17 @@
         console.log("AudioContext resumed, state:", audioCtx.state);
       }
 
-      const source = audioCtx.createMediaStreamAudioSource(micStream);
-      console.log("MediaStreamAudioSource created successfully");
+      let source;
+      if (typeof audioCtx.createMediaStreamSource === 'function') {
+        console.log("Using createMediaStreamSource");
+        source = audioCtx.createMediaStreamSource(micStream);
+      } else if (typeof audioCtx.createMediaStreamAudioSource === 'function') {
+        console.log("Using createMediaStreamAudioSource");
+        source = audioCtx.createMediaStreamAudioSource(micStream);
+      } else {
+        throw new Error("Neither createMediaStreamSource nor createMediaStreamAudioSource available");
+      }
+      console.log("MediaStream source created successfully");
 
       audioAnalyser = audioCtx.createAnalyser();
       audioAnalyser.fftSize = 512;
