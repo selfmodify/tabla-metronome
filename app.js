@@ -573,16 +573,29 @@
       }
 
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      console.log("Microphone stream acquired");
 
       // Create a fresh AudioContext just for the microphone
       const micCtx = new (window.AudioContext || window.webkitAudioContext)();
       console.log("Microphone AudioContext created:", micCtx.constructor.name);
+      console.log("Available methods on audioCtx:", Object.getOwnPropertyNames(Object.getPrototypeOf(micCtx)).filter(m => m.includes('MediaStream')));
 
-      if (!micCtx.createMediaStreamAudioSource) {
-        throw new Error("Your browser doesn't support Web Audio API's createMediaStreamAudioSource method");
+      // Resume the audio context if it's suspended
+      if (micCtx.state === 'suspended') {
+        console.log("AudioContext suspended, resuming...");
+        await micCtx.resume();
+      }
+      console.log("AudioContext state:", micCtx.state);
+
+      if (typeof micCtx.createMediaStreamAudioSource !== 'function') {
+        console.error("createMediaStreamAudioSource is:", typeof micCtx.createMediaStreamAudioSource);
+        console.error("micCtx methods:", Object.keys(micCtx));
+        throw new Error("createMediaStreamAudioSource method not available");
       }
 
       const source = micCtx.createMediaStreamAudioSource(micStream);
+      console.log("MediaStreamAudioSource created");
+
       audioAnalyser = micCtx.createAnalyser();
       audioAnalyser.fftSize = 512;
       source.connect(audioAnalyser);
