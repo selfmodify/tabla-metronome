@@ -543,18 +543,12 @@
     }
   });
 
-  // Mouse/Touch tap support
+  // Test: Mouse click to manually trigger tap feedback (for testing)
   document.addEventListener("click", (e)=>{
     if (tapAlongMode && isPlaying && e.target.id !== "playBtn"){
-      detectTapSync();
+      detectTableaTap();
     }
   });
-
-  document.addEventListener("touchstart", (e)=>{
-    if (tapAlongMode && isPlaying){
-      detectTapSync();
-    }
-  }, { passive: true });
 
   // Microphone-based tabla beat detection
   async function startMicDetection(){
