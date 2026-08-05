@@ -435,8 +435,8 @@
 
   // ---------- Transport ----------
   function startPlayback(){
-    if (isLoading) return;
     ensureAudio();
+    if (isLoading) return;
     audioCtx.resume();
     isPlaying = true;
     currentBeatNumber = loopMode ? loopStart : 0;
@@ -451,7 +451,9 @@
     scheduler();
     renderBeat(currentBeatNumber);
     rafID = requestAnimationFrame(uiLoop);
-    if (tapAlongMode) startMicDetection();
+    if (tapAlongMode) {
+      startMicDetection();
+    }
   }
 
   function stopPlayback(silent){
@@ -552,43 +554,57 @@
 
   // Microphone-based tabla beat detection using ScriptProcessorNode
   async function startMicDetection(){
+    if (!window.isSecureContext) {
+      const msg = "Microphone input requires a secure context (HTTPS).";
+      console.error(msg);
+      tapFeedback.textContent = msg;
+      tapFeedback.className = "tap-feedback bad";
+      tapFeedback.style.display = "block";
+      return;
+    }
+
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error("getUserMedia not supported");
+        tapFeedback.textContent = "Your browser does not support microphone access.";
+        tapFeedback.className = "tap-feedback bad";
+        tapFeedback.style.display = "block";
         return;
       }
 
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      ensureAudio();
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
 
-      let source, processor;
+      // Create a fresh AudioContext just for the microphone
+      const micCtx = new (window.AudioContext || window.webkitAudioContext)();
+      console.log("Microphone AudioContext created:", micCtx.constructor.name);
 
-      // Try modern approach first
-      if (audioCtx.createMediaStreamAudioSource) {
-        source = audioCtx.createMediaStreamAudioSource(micStream);
-        audioAnalyser = audioCtx.createAnalyser();
-        audioAnalyser.fftSize = 512;
-        source.connect(audioAnalyser);
-      } else {
-        // Fallback for browsers without createMediaStreamAudioSource
-        processor = audioCtx.createScriptProcessor(4096, 1, 1);
-        source = audioCtx.createMediaStreamAudioSource(micStream);
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
+      if (!micCtx.createMediaStreamAudioSource) {
+        throw new Error("Your browser doesn't support Web Audio API's createMediaStreamAudioSource method");
       }
+
+      const source = micCtx.createMediaStreamAudioSource(micStream);
+      audioAnalyser = micCtx.createAnalyser();
+      audioAnalyser.fftSize = 512;
+      source.connect(audioAnalyser);
+      console.log("Microphone pipeline connected successfully");
 
       function detectTableaHits(){
         if (!tapAlongMode || !isPlaying) return;
 
         let rms = 0;
-        if (audioAnalyser) {
-          const timeDomain = new Uint8Array(audioAnalyser.fftSize);
-          audioAnalyser.getByteTimeDomainData(timeDomain);
-          for (let i = 0; i < timeDomain.length; i++){
-            const normalized = (timeDomain[i] - 128) / 128;
-            rms += normalized * normalized;
-          }
-          rms = Math.sqrt(rms / timeDomain.length);
+        // Ensure audioAnalyser is still valid
+        if (audioAnalyser && micStream?.active) {
+            const timeDomain = new Uint8Array(audioAnalyser.fftSize);
+            audioAnalyser.getByteTimeDomainData(timeDomain);
+            for (let i = 0; i < timeDomain.length; i++){
+                const normalized = (timeDomain[i] - 128) / 128;
+                rms += normalized * normalized;
+            }
+            rms = Math.sqrt(rms / timeDomain.length);
+        } else {
+            // Stop the loop if the stream is gone
+            stopMicDetection();
+            return;
         }
 
         const now = performance.now();
@@ -601,19 +617,35 @@
       detectTableaHits();
       console.log("Microphone listening started");
     } catch (err) {
-      console.error("Mic error:", err.message);
-      tapFeedback.textContent = "Microphone access denied or not supported";
+      console.error("Mic error:", err.name, err.message);
+      let message = "Microphone access denied or not supported.";
+      if (err.name === 'NotAllowedError') {
+        message = "Microphone permission was denied. Please allow it in your browser settings.";
+      } else if (err.name === 'NotFoundError') {
+        message = "No microphone was found on your device.";
+      } else if (err.name === 'NotReadableError') {
+        message = "A hardware error occurred. Please try again or restart your browser.";
+      } else if (err.name === 'SecurityError') {
+        message = "Microphone access is blocked by your browser's security settings.";
+      }
+      tapFeedback.textContent = message;
       tapFeedback.className = "tap-feedback bad";
       tapFeedback.style.display = "block";
     }
   }
 
   function detectTableaTap(){
-    const now = performance.now();
+    // Use the AudioContext's clock for an accurate comparison with note schedule times.
+    // performance.now() and audioCtx.currentTime have different origins and are not comparable.
+    const now = audioCtx.currentTime;
     const expectedInterval = secondsPerBeat() * 1000;
-    const timeSinceLastBeat = now - nextNoteTime;
-    const offsetMs = Math.abs(timeSinceLastBeat % expectedInterval);
-    const accuracy = Math.max(0, 100 - (offsetMs / expectedInterval) * 100);
+    const timeSincePlaybackStart = now - playbackStartCtxTime;
+    const beatDurationSec = secondsPerBeat();
+    
+    // Find the closest beat time to the current tap time
+    const offsetFromBeat = timeSincePlaybackStart % beatDurationSec;
+    const timingOffset = offsetFromBeat > beatDurationSec / 2 ? offsetFromBeat - beatDurationSec : offsetFromBeat;
+    const accuracy = Math.max(0, 100 - (Math.abs(timingOffset) / beatDurationSec) * 100);
 
     tapStats.totalTaps++;
     tapStats.accuracyScores.push(accuracy);
@@ -627,15 +659,14 @@
       setTimeout(() => feedbackEl?.classList.remove("tap-flash"), 150);
     }
 
-    const timingOffset = offsetMs < expectedInterval / 2 ? offsetMs : offsetMs - expectedInterval;
     if (Math.abs(timingOffset) < TAP_SYNC_TOLERANCE_MS){
       tapFeedback.textContent = `✓ Perfect! (${accuracy.toFixed(0)}%)`;
       tapFeedback.className = "tap-feedback good";
     } else if (timingOffset > 0){
-      tapFeedback.textContent = `← Ahead by ${timingOffset.toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
+      tapFeedback.textContent = `→ Late by ${(timingOffset * 1000).toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
       tapFeedback.className = "tap-feedback";
     } else {
-      tapFeedback.textContent = `→ Late by ${Math.abs(timingOffset).toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
+      tapFeedback.textContent = `← Ahead by ${Math.abs(timingOffset * 1000).toFixed(0)}ms (${accuracy.toFixed(0)}%)`;
       tapFeedback.className = "tap-feedback";
     }
     tapFeedback.style.display = "block";
@@ -646,6 +677,7 @@
     if (micStream){
       micStream.getTracks().forEach(t => t.stop());
       micStream = null;
+      audioAnalyser = null;
     }
   }
 
