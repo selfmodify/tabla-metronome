@@ -550,7 +550,7 @@
     }
   });
 
-  // Microphone-based tabla beat detection
+  // Microphone-based tabla beat detection using ScriptProcessorNode
   async function startMicDetection(){
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -559,25 +559,37 @@
       }
 
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
       ensureAudio();
-      const source = audioCtx.createMediaStreamAudioSource(micStream);
-      audioAnalyser = audioCtx.createAnalyser();
-      audioAnalyser.fftSize = 512;
-      source.connect(audioAnalyser);
 
-      const timeDomain = new Uint8Array(audioAnalyser.fftSize);
+      let source, processor;
+
+      // Try modern approach first
+      if (audioCtx.createMediaStreamAudioSource) {
+        source = audioCtx.createMediaStreamAudioSource(micStream);
+        audioAnalyser = audioCtx.createAnalyser();
+        audioAnalyser.fftSize = 512;
+        source.connect(audioAnalyser);
+      } else {
+        // Fallback for browsers without createMediaStreamAudioSource
+        processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        source = audioCtx.createMediaStreamAudioSource(micStream);
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+      }
 
       function detectTableaHits(){
         if (!tapAlongMode || !isPlaying) return;
 
-        audioAnalyser.getByteTimeDomainData(timeDomain);
         let rms = 0;
-        for (let i = 0; i < timeDomain.length; i++){
-          const normalized = (timeDomain[i] - 128) / 128;
-          rms += normalized * normalized;
+        if (audioAnalyser) {
+          const timeDomain = new Uint8Array(audioAnalyser.fftSize);
+          audioAnalyser.getByteTimeDomainData(timeDomain);
+          for (let i = 0; i < timeDomain.length; i++){
+            const normalized = (timeDomain[i] - 128) / 128;
+            rms += normalized * normalized;
+          }
+          rms = Math.sqrt(rms / timeDomain.length);
         }
-        rms = Math.sqrt(rms / timeDomain.length);
 
         const now = performance.now();
         if (rms > MIC_PEAK_THRESHOLD && now - lastDetectedPeakTime > MIC_PEAK_DEBOUNCE_MS){
@@ -590,7 +602,8 @@
       console.log("Microphone listening started");
     } catch (err) {
       console.error("Mic error:", err.message);
-      tapFeedback.textContent = "Microphone access denied";
+      tapFeedback.textContent = "Microphone access denied or not supported";
+      tapFeedback.className = "tap-feedback bad";
       tapFeedback.style.display = "block";
     }
   }
