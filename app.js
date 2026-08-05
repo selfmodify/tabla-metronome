@@ -554,9 +554,9 @@
   async function startMicDetection(){
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioCtx.createMediaStreamAudioSource(micStream);
-      audioAnalyser = audioCtx.createAnalyser();
+      const micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = micAudioCtx.createMediaStreamAudioSource(micStream);
+      audioAnalyser = micAudioCtx.createAnalyser();
       audioAnalyser.fftSize = 512;
       source.connect(audioAnalyser);
 
