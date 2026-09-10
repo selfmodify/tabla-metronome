@@ -942,12 +942,11 @@
 
   // ---------- Init ----------
   applyTheme(currentTheme);
-  soundSelector.value = soundStyle;
-  if (soundSelector.value !== soundStyle){ // stale/unknown saved value
+  if (!soundSelector.querySelector(`input[value="${soundStyle}"]`)){ // stale/unknown saved value
     soundStyle = "tabla";
-    soundSelector.value = soundStyle;
     localStorage.setItem('tablaSound', soundStyle);
   }
+  soundSelector.querySelector(`input[value="${soundStyle}"]`).checked = true;
   buildTaalSelector();
   buildBeatStrip();
   updateLoopSelects();

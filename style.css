@@ -221,19 +221,18 @@ header p{
 .stat-box .label{ font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim);}
 .stat-box .value{ font-size:1.5rem; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
 
+#taalTitle{ text-align: center; }
+
 .beat-cycle-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
-.beat-cycle-header-row h2 {
-  flex: 1;
-}
 .header-stats {
   display: flex;
   gap: 10px;
-  flex: 2;
+  flex: 1;
   justify-content: flex-end;
 }
 .header-stats .stat-box {
@@ -352,10 +351,36 @@ input[type=range]::-moz-range-thumb{
 
 /* Sound selector sits in the beat-cycle header between title and stats */
 .sound-selector{
-  width: auto;
   flex: 0 0 auto;
-  margin: 0 10px;
-  font-size: .8rem;
+  display: flex;
+  gap: 4px;
+  margin: 0 10px 0 0;
+  padding: 3px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--bg2);
+  font-size: .78rem;
+}
+.sound-selector label{
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sound-selector label:hover{ color: var(--text); }
+.sound-selector input[type=radio]{
+  accent-color: var(--gold);
+  cursor: pointer;
+  margin: 0;
+}
+.sound-selector label:has(input:checked){
+  background: var(--panel);
+  color: var(--gold);
+  font-weight: 600;
 }
 
 .num-input{

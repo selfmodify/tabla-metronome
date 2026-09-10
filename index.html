@@ -54,13 +54,13 @@
   </section>
 
   <section class="panel">
+    <h2 id="taalTitle">Beat Cycle</h2>
     <div class="beat-cycle-header-row">
-      <h2 id="taalTitle" style="margin:0;">Beat Cycle</h2>
-      <select id="soundSelector" class="taal-selector sound-selector" title="Sound style">
-        <option value="tabla">Sound: Tabla</option>
-        <option value="click">Sound: Synth Click</option>
-        <option value="manjira">Sound: Manjira</option>
-      </select>
+      <fieldset id="soundSelector" class="sound-selector" title="Sound style">
+        <label><input type="radio" name="soundStyle" value="tabla" checked> Tabla</label>
+        <label><input type="radio" name="soundStyle" value="click"> Synth Click</label>
+        <label><input type="radio" name="soundStyle" value="manjira"> Manjira</label>
+      </fieldset>
       <div class="header-stats">
         <div class="stat-box">
           <div class="label">Beat</div>
