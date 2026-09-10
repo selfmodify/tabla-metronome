@@ -911,6 +911,23 @@
   volDown.addEventListener("click", ()=> setVolume(parseInt(volSlider.value,10)-5));
   volUp.addEventListener("click", ()=> setVolume(parseInt(volSlider.value,10)+5));
 
+  // ---------- Build info ----------
+  // The site deploys straight from main (no build step), so the latest
+  // commit on main is exactly what is being served. Fetch its hash and
+  // date from the GitHub API; stay blank when offline or rate-limited.
+  async function showBuildInfo(){
+    const el = document.getElementById("buildInfo");
+    if (!el) return;
+    try {
+      const res = await fetch("https://api.github.com/repos/selfmodify/tabla-metronome/commits/main");
+      if (!res.ok) return;
+      const c = await res.json();
+      const short = c.sha.slice(0, 7);
+      const when = new Date(c.commit.committer.date).toLocaleString();
+      el.innerHTML = `Updated ${when} &middot; <a href="${c.html_url}" target="_blank" rel="noopener">${short}</a>`;
+    } catch (e) { /* offline — leave blank */ }
+  }
+
   // ---------- Init ----------
   applyTheme(currentTheme);
   soundSelector.value = soundStyle;
@@ -927,4 +944,5 @@
   setVolume(volume*100);
 
   ensureAudio();
+  showBuildInfo();
 })();

@@ -484,3 +484,13 @@ footer{
   margin-top:16px;
   line-height:1.5;
 }
+
+.build-info{
+  margin-top:8px;
+  font-size:.68rem;
+  color:var(--gold-dim);
+}
+.build-info a{
+  color:var(--gold-dim);
+  font-family:ui-monospace, Consolas, monospace;
+}
