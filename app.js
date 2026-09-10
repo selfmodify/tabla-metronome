@@ -227,6 +227,8 @@
       }
       beatStrip.appendChild(group);
     });
+    // Mark the cycle's final beat so the player can see where the turnaround is.
+    if (beatCircleEls.length) beatCircleEls[beatCircleEls.length - 1].classList.add("cycle-end");
   }
 
   function updateStatsIdle(){
@@ -467,6 +469,14 @@
     source.start(time);
   }
 
+  // Soft rising double-ping layered onto the cycle's last beat so the
+  // player hears the sam coming, in every sound style. Kept quiet enough
+  // not to mask the beat's own stroke.
+  function cycleEndCue(time){
+    partial(1976, time, 0.12, 0.18);
+    partial(2637, time + 0.04, 0.1, 0.13);
+  }
+
   // ---------- Scheduler ----------
   function secondsPerBeat(){ return 60.0 / bpm; }
 
@@ -484,6 +494,8 @@
     } else {
       playBol(bol, accent, time);
     }
+    const lastBeat = loopMode ? loopEnd : beatTable.length - 1;
+    if (beatNumber === lastBeat) cycleEndCue(time);
   }
 
   function advanceBeat(){
