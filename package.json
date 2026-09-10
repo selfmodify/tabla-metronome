@@ -1,0 +1,12 @@
+{
+  "name": "tabla-metronome",
+  "version": "1.0.0",
+  "description": "A web-based metronome for practicing Indian classical percussion (tabla) taals.",
+  "private": true,
+  "scripts": {
+    "dev": "serve . -l 3000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.6"
+  }
+}
