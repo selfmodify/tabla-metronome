@@ -59,16 +59,20 @@
   }
 
   // Default sound parameters
+  // All tones share TONE_DURATION so every beat sounds for the same length;
+  // accents differ only in pitch and loudness.
+  const TONE_DURATION = 0.15;
   const DEFAULT_SOUND_PROFILE = {
-    samFreq1: 1046, samDur1: 0.16, samPeak1: 1.0,
-    samFreq2: 196, samDur2: 0.22, samPeak2: 0.6,
-    taliFreq: 784, taliDur: 0.13, taliPeak: 0.75,
-    khaliFilterFreq: 1400, khaliDur: 0.14, khaliPeak: 0.45,
-    plainFreq: 440, plainDur: 0.07, plainPeak: 0.28
+    samFreq1: 1046, samPeak1: 1.0,
+    samFreq2: 196, samPeak2: 0.7,
+    taliFreq: 784, taliPeak: 0.9,
+    khaliFilterFreq: 1400, khaliPeak: 0.7,
+    plainFreq: 440, plainPeak: 0.5
   };
 
   // ---------- State ----------
   let currentTaalKey = localStorage.getItem('tablaTaal') || "teentaal";
+  let soundStyle = localStorage.getItem('tablaSound') || "tabla";
   let bpm = parseInt(localStorage.getItem('tablaBpm'), 10) || 80;
   let volume = parseFloat(localStorage.getItem('tablaVol')) || 0.8;
   let currentTheme = localStorage.getItem('tablaTheme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -117,6 +121,7 @@
 
   // ---------- DOM refs ----------
   const taalSelector = document.getElementById("taalSelector");
+  const soundSelector = document.getElementById("soundSelector");
   const taalTitle = document.getElementById("taalTitle");
   const beatStrip = document.getElementById("beatStrip");
   const bigBol = document.getElementById("bigBol");
@@ -177,6 +182,11 @@
     });
   }
   taalSelector.addEventListener("change", (e)=> selectTaal(e.target.value));
+
+  soundSelector.addEventListener("change", (e)=>{
+    soundStyle = e.target.value;
+    localStorage.setItem('tablaSound', soundStyle);
+  });
 
   function selectTaal(key){
     if (key === currentTaalKey) return;
@@ -254,7 +264,19 @@
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = audioCtx.createGain();
       masterGain.gain.value = volume;
-      masterGain.connect(audioCtx.destination);
+      // Fixed loudness boost, driven into the compressor below — the
+      // compressor absorbs the extra peak level, so this raises overall
+      // volume without distortion. Turn this up/down to taste.
+      const boost = audioCtx.createGain();
+      boost.gain.value = 1.8;
+      // Gentle limiting so layered strokes (ring + bass + tick) don't clip.
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -10;
+      compressor.knee.value = 15;
+      compressor.ratio.value = 8;
+      compressor.attack.value = 0.002;
+      compressor.release.value = 0.1;
+      masterGain.connect(boost).connect(compressor).connect(audioCtx.destination);
       if (USE_AUDIO_SAMPLES) loadAudioSamples();
     }
   }
@@ -262,14 +284,110 @@
   function tone(freq, time, dur, peak){
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
+    osc.type = "triangle";
+    // Start above the target pitch and drop quickly — the falling pitch is
+    // what makes a synthesized hit read as a drum strike rather than a beep.
+    osc.frequency.setValueAtTime(freq * 1.4, time);
+    osc.frequency.exponentialRampToValueAtTime(freq, time + 0.035);
     gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(peak, time + 0.004);
+    gain.gain.linearRampToValueAtTime(peak, time + 0.002);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
     osc.connect(gain).connect(masterGain);
     osc.start(time);
     osc.stop(time + dur + 0.02);
+  }
+
+  // Short high-frequency noise burst layered under each hit for a sharp,
+  // stick-like attack; too brief to alter the perceived note length.
+  function attackTick(time, peak){
+    noiseHit(time, 0.02, peak, 3500);
+  }
+
+  // ---------- Synthesized tabla strokes ----------
+  // Each bol is modeled on how the stroke is physically played:
+  // - ring: dayan (right drum) partials as [harmonic, amplitude] pairs — the
+  //   syahi patch makes tabla overtones near-harmonic, so a small stack of
+  //   sine partials rings convincingly. Na/Ta strike the rim (upper partials
+  //   dominate); Tin favors the fundamental.
+  // - bass: bayan (left drum) with its characteristic downward pitch glide.
+  // - slap: closed, damped stroke — a short filtered noise burst.
+  // Compound bols (Dha = Na + Ge, Dhin = Tin + Ge) layer components.
+  const TABLA_F0 = 330; // dayan tuning, ~E4
+
+  const BOL_SOUNDS = {
+    na:   { ring: [[1,0.12],[2,0.85],[3,0.3],[4,0.12]], tick: 0.3 },
+    ta:   { ring: [[1,0.12],[2,0.85],[3,0.3],[4,0.12]], tick: 0.3 },
+    tin:  { ring: [[1,0.8],[2,0.25],[3,0.08]], tick: 0.18 },
+    ti:   { slap: 0.55, slapFreq: 2200 },
+    ra:   { slap: 0.5, slapFreq: 2600 },
+    ki:   { slap: 0.5, slapFreq: 1500 },
+    ka:   { slap: 0.6, slapFreq: 700 },
+    ge:   { bass: 0.95, tick: 0.12 },
+    dha:  { ring: [[1,0.12],[2,0.85],[3,0.3],[4,0.12]], bass: 0.8, tick: 0.3 },
+    dhin: { ring: [[1,0.8],[2,0.25],[3,0.08]], bass: 0.8, tick: 0.18 }
+  };
+
+  function partial(freq, time, dur, peak){
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(peak, time + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(gain).connect(masterGain);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+  }
+
+  function bayanBass(time, peak){
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(82, time + 0.12);
+    gain.gain.setValueAtTime(0, time);
+    gain.gain.linearRampToValueAtTime(peak, time + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.3);
+    osc.connect(gain).connect(masterGain);
+    osc.start(time);
+    osc.stop(time + 0.32);
+  }
+
+  function playBol(bol, accent, time){
+    const spec = BOL_SOUNDS[(bol || "").toLowerCase()];
+    if (!spec){ playClick(accent, time); return; }
+    let mult = 1.0;
+    if (accent === "sam") mult = 1.25;
+    else if (accent === "tali") mult = 1.1;
+
+    if (spec.tick) attackTick(time, spec.tick * mult);
+    if (spec.ring){
+      // Higher partials decay faster, as on the real drum.
+      spec.ring.forEach(([h, amp]) => {
+        partial(TABLA_F0 * h, time, 0.4 / Math.sqrt(h), amp * 0.5 * mult);
+      });
+    }
+    if (spec.bass) bayanBass(time, spec.bass * mult);
+    if (spec.slap) noiseHit(time, 0.07, spec.slap * mult, spec.slapFreq);
+  }
+
+  // Manjira: the small hand cymbals that keep taal alongside tabla. Metal
+  // sounds metallic because its partials are inharmonic (non-integer
+  // ratios), so the "ting" is a stack of detuned sines. Accented beats ring
+  // open and long; plain beats are the damped closed "tik"; khali is a low,
+  // muted chick.
+  function playManjira(accent, time){
+    const partials = [1, 2.71, 4.95, 6.99];
+    let base = 2400, ring = 0.5, peak = 0.5;
+    if (accent === "sam"){ base = 2600; ring = 0.9; peak = 0.7; }
+    else if (accent === "tali"){ base = 2500; ring = 0.6; peak = 0.6; }
+    else if (accent === "khali"){ base = 1400; ring = 0.08; peak = 0.5; }
+    else { ring = 0.09; }
+    attackTick(time, 0.25);
+    partials.forEach((ratio, i)=>{
+      partial(base * ratio, time, ring / (1 + i * 0.5), peak / (1 + i));
+    });
   }
 
   function noiseHit(time, dur, peak, filterFreq){
@@ -297,17 +415,20 @@
     else if (accent === "tali") volume_mult = 1.1;
 
     if (accent === "sam"){
-      tone(profile.samFreq1, time, profile.samDur1, profile.samPeak1 * volume_mult);
-      tone(profile.samFreq2, time, profile.samDur2, profile.samPeak2 * volume_mult);
+      attackTick(time, 0.5 * volume_mult);
+      tone(profile.samFreq1, time, TONE_DURATION, profile.samPeak1 * volume_mult);
+      tone(profile.samFreq2, time, TONE_DURATION, profile.samPeak2 * volume_mult);
     }
     else if (accent === "tali"){
-      tone(profile.taliFreq, time, profile.taliDur, profile.taliPeak * volume_mult);
+      attackTick(time, 0.4 * volume_mult);
+      tone(profile.taliFreq, time, TONE_DURATION, profile.taliPeak * volume_mult);
     }
     else if (accent === "khali"){
-      noiseHit(time, profile.khaliDur, profile.khaliPeak, profile.khaliFilterFreq);
+      noiseHit(time, TONE_DURATION, profile.khaliPeak, profile.khaliFilterFreq);
     }
     else {
-      tone(profile.plainFreq, time, profile.plainDur, profile.plainPeak);
+      attackTick(time, 0.25);
+      tone(profile.plainFreq, time, TONE_DURATION, profile.plainPeak);
     }
   }
 
@@ -353,11 +474,15 @@
     if (loopMode && (beatNumber < loopStart || beatNumber > loopEnd)) return;
     beatQueue.push({ beatNumber, time });
     const accent = beatTable[beatNumber].accent;
+    const bol = TAALS[currentTaalKey].bols[beatNumber];
     if (USE_AUDIO_SAMPLES){
-      const bol = TAALS[currentTaalKey].bols[beatNumber];
       playSample(bol, time, accent);
-    } else {
+    } else if (soundStyle === "click"){
       playClick(accent, time);
+    } else if (soundStyle === "manjira"){
+      playManjira(accent, time);
+    } else {
+      playBol(bol, accent, time);
     }
   }
 
@@ -788,6 +913,12 @@
 
   // ---------- Init ----------
   applyTheme(currentTheme);
+  soundSelector.value = soundStyle;
+  if (soundSelector.value !== soundStyle){ // stale/unknown saved value
+    soundStyle = "tabla";
+    soundSelector.value = soundStyle;
+    localStorage.setItem('tablaSound', soundStyle);
+  }
   buildTaalSelector();
   buildBeatStrip();
   updateLoopSelects();
